@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import { useAppStore } from './useAppStore';
+import { API_URL } from '../lib/api';
 
-const CODING_SESSIONS_KEY = 'atlas_coding_sessions_v1';
-const ACTIVE_CODING_SESSION_KEY = 'atlas_active_coding_session_id_v1';
+const CODING_SESSIONS_KEY = 'pluto_coding_sessions_v1';
+const ACTIVE_CODING_SESSION_KEY = 'pluto_active_coding_session_id_v1';
 
 const getStorageKeys = () => {
   const user = useAppStore.getState().user;
@@ -110,7 +111,7 @@ export const useCodingStore = create((set, get) => ({
     set({ isGenerating: true, error: null });
 
     try {
-      const response = await fetch('https://atlasmultiagentsystem.onrender.com/api/v1/code/generate', {
+      const response = await fetch(`${API_URL}/api/v1/code/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -179,7 +180,7 @@ export const useCodingStore = create((set, get) => ({
     set({ isCritiquing: true, error: null });
 
     try {
-      const response = await fetch('https://atlasmultiagentsystem.onrender.com/api/v1/code/critic', {
+      const response = await fetch(`${API_URL}/api/v1/code/critic`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

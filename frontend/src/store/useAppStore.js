@@ -1,7 +1,8 @@
 import { create } from 'zustand';
+import { API_URL } from '../lib/api';
 
-const DEMO_EMAIL = 'admin@atlas.ai';
-const DEMO_PASSWORD = 'atlas2024';
+const DEMO_EMAIL = 'admin@pluto.ai';
+const DEMO_PASSWORD = 'pluto2024';
 
 // Helper to get api keys from localStorage
 const getStoredKey = (provider) => {
@@ -30,7 +31,7 @@ const storeKey = (provider, key) => {
 
 const getStoredUser = () => {
   try {
-    const raw = localStorage.getItem('atlas_auth_user');
+    const raw = localStorage.getItem('pluto_auth_user');
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -39,9 +40,9 @@ const getStoredUser = () => {
 
 const storeUser = (user) => {
   if (user) {
-    localStorage.setItem('atlas_auth_user', JSON.stringify(user));
+    localStorage.setItem('pluto_auth_user', JSON.stringify(user));
   } else {
-    localStorage.removeItem('atlas_auth_user');
+    localStorage.removeItem('pluto_auth_user');
   }
 };
 
@@ -61,7 +62,7 @@ export const useAppStore = create((set, get) => ({
   // Auth
   login: async (email, password, remember = true) => {
     try {
-      const response = await fetch('https://atlasmultiagentsystem.onrender.com/api/v1/auth/login', {
+      const response = await fetch(`${API_URL}/api/v1/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim(), password })
@@ -83,7 +84,7 @@ export const useAppStore = create((set, get) => ({
 
   signup: async (name, email, password) => {
     try {
-      const response = await fetch('https://atlasmultiagentsystem.onrender.com/api/v1/auth/signup', {
+      const response = await fetch(`${API_URL}/api/v1/auth/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: name.trim(), email: email.trim().toLowerCase(), password })
@@ -103,7 +104,7 @@ export const useAppStore = create((set, get) => ({
 
   loginWithGoogle: async (googleUser) => {
     try {
-      const response = await fetch('https://atlasmultiagentsystem.onrender.com/api/v1/auth/google', {
+      const response = await fetch(`${API_URL}/api/v1/auth/google`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -150,7 +151,7 @@ export const useAppStore = create((set, get) => ({
   backendConfig: null,
   fetchBackendConfig: async () => {
     try {
-      const response = await fetch('https://atlasmultiagentsystem.onrender.com/api/v1/config/llm');
+      const response = await fetch(`${API_URL}/api/v1/config/llm`);
       if (response.ok) {
         const data = await response.json();
         set({ backendConfig: data });

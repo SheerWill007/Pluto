@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useAgentStore } from '../store/useAgentStore';
+import { API_URL } from '../lib/api';
 
 export const useAgentStatus = (pollingInterval = 3000) => {
   const setAgentStates = useAgentStore((state) => state.setAgentStates);
@@ -7,7 +8,7 @@ export const useAgentStatus = (pollingInterval = 3000) => {
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const response = await fetch('https://atlasmultiagentsystem.onrender.com/api/v1/agents/status');
+        const response = await fetch(`${API_URL}/api/v1/agents/status`);
         if (response.ok) {
           const data = await response.json();
           setAgentStates(data);

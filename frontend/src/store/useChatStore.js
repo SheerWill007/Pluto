@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { useAppStore } from './useAppStore';
 
-const CHATS_STORAGE_KEY = 'atlas_agent_chats_v1';
-const ACTIVE_CHAT_ID_KEY = 'atlas_agent_active_chat_id_v1';
+const CHATS_STORAGE_KEY = 'pluto_agent_chats_v1';
+const ACTIVE_CHAT_ID_KEY = 'pluto_agent_active_chat_id_v1';
 
 const getStorageKeys = () => {
   const user = useAppStore.getState().user;
@@ -58,7 +58,7 @@ export const useChatStore = create((set, get) => ({
           messages: [
             {
               role: 'assistant',
-              content: "Hello! I am the Atlas Agent Orchestrator. Switch to 'Agent Mode' to let me call RAG knowledge search and Gmail tools dynamically to solve your queries.",
+            content: "Hello! I am the Pluto Agent Orchestrator. Switch to 'Agent Mode' to let me call RAG knowledge search and Gmail tools dynamically to solve your queries.",
               model: 'system',
               tokens: 28,
               latency: 0.05
@@ -85,7 +85,7 @@ export const useChatStore = create((set, get) => ({
       messages: [
         {
           role: 'assistant',
-          content: "Hello! I am the Atlas Agent Orchestrator. Switch to 'Agent Mode' to let me call RAG knowledge search and Gmail tools dynamically to solve your queries.",
+          content: "Hello! I am the Pluto Agent Orchestrator. Switch to 'Agent Mode' to let me call RAG knowledge search and Gmail tools dynamically to solve your queries.",
           model: 'system',
           tokens: 28,
           latency: 0.05
@@ -148,7 +148,7 @@ export const useChatStore = create((set, get) => ({
         messages: [
           {
             role: 'assistant',
-            content: "Hello! I am the Atlas Agent Orchestrator. Switch to 'Agent Mode' to let me call RAG knowledge search and Gmail tools dynamically to solve your queries.",
+            content: "Hello! I am the Pluto Agent Orchestrator. Switch to 'Agent Mode' to let me call RAG knowledge search and Gmail tools dynamically to solve your queries.",
             model: 'system',
             tokens: 28,
             latency: 0.05

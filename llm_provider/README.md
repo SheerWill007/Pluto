@@ -236,9 +236,9 @@ for name, desc in providers.items():
 for provider in ["openai", "anthropic", "google", "ollama"]:
     try:
         model = get_llm_model(provider=provider)
-        print(f"✓ {provider} works")
+        print(f"{provider} works")
     except Exception as e:
-        print(f"✗ {provider}: {e}")
+        print(f"{provider}: {e}")
 ```
 
 ## Configuration Precedence

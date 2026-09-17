@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🔄 Restarting Atlas Agent System..."
+echo "Restarting Pluto Agent System..."
 echo ""
 
 ./stop.sh

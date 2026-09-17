@@ -88,10 +88,10 @@ export const Login = () => {
 
   // Read configured Google client_id and client_secret from localStorage or environment
   const [googleClientId, setGoogleClientId] = useState(
-    localStorage.getItem('atlas_google_client_id') || import.meta.env.VITE_GOOGLE_CLIENT_ID || ''
+    localStorage.getItem('pluto_google_client_id') || import.meta.env.VITE_GOOGLE_CLIENT_ID || ''
   );
   const [googleClientSecret, setGoogleClientSecret] = useState(
-    localStorage.getItem('atlas_google_client_secret') || import.meta.env.VITE_GOOGLE_CLIENT_SECRET || ''
+    localStorage.getItem('pluto_google_client_secret') || import.meta.env.VITE_GOOGLE_CLIENT_SECRET || ''
   );
   const cardGlowRef = useRef(null);
 
@@ -185,8 +185,8 @@ export const Login = () => {
     }
     setError('');
     // Persist configured client ID
-    localStorage.setItem('atlas_google_client_id', googleClientId.trim());
-    localStorage.setItem('atlas_google_client_secret', googleClientSecret.trim());
+    localStorage.setItem('pluto_google_client_id', googleClientId.trim());
+    localStorage.setItem('pluto_google_client_secret', googleClientSecret.trim());
     sessionStorage.setItem('google_oauth_client_secret', googleClientSecret.trim());
 
     // 1. Prefer Google Identity Services (GIS) popup flow (does not suffer from redirect_uri mismatch)
@@ -308,10 +308,10 @@ export const Login = () => {
         />
       </div>
 
-      {/* ATLAS Title Header */}
-      <div className="relative w-full max-w-3xl h-20 md:h-24 shrink-0 pointer-events-auto flex items-center justify-center">
-        <ParticleText
-          text="ATLAS"
+      {/* PLUTO Title Header */}
+      <div className="relative z-10 w-full pt-12 pb-6 flex justify-center items-center pointer-events-none">
+        <ParticleText 
+          text="PLUTO"
           particleSize={2}
           density={4}
           color="#a89878"
@@ -391,7 +391,7 @@ export const Login = () => {
             Multi-Agent Orchestration, Simplified
           </h2>
           <p className="relative z-10 text-sm md:text-base text-white/80 max-w-xl mb-5 leading-relaxed">
-            Atlas coordinates chat, document intelligence, email triage, and code 
+            Pluto coordinates chat, document intelligence, email triage, and code 
             generation through a single agent workspace — built for speed, clarity, 
             and control.
           </p>
@@ -469,7 +469,7 @@ export const Login = () => {
                 <Cpu className="h-8 w-8 text-white" />
               </div>
               <h1 className="text-2xl font-extrabold text-stone-900 dark:text-stone-100 tracking-wide">
-                Atlas Agent Console
+                Pluto Agent Console
               </h1>
               <p className="text-xs text-stone-500 dark:text-stone-400 mt-2 leading-relaxed max-w-xs">
                 {isSignUp ? 'Create a new account' : 'Sign in to access your multi-agent orchestration workspace'}

@@ -5,6 +5,7 @@ import DocumentUpload from './DocumentUpload';
 import ChunkViewer from './ChunkViewer';
 import GlassCard from '../ui/GlassCard';
 import { Search, Database, Sparkles, BookOpen, Layers, ChevronDown, FileText, Trash2 } from 'lucide-react';
+import { API_URL } from '../../lib/api';
 import MarkdownFormatter from '../ui/MarkdownFormatter';
 
 export const RAGPanel = () => {
@@ -32,7 +33,7 @@ export const RAGPanel = () => {
   // Load existing ingested documents from backend
   const fetchDocuments = async () => {
     try {
-      const response = await fetch('https://atlasmultiagentsystem.onrender.com/api/v1/rag/documents');
+      const response = await fetch(`${API_URL}/api/v1/rag/documents`);
       if (response.ok) {
         const data = await response.json();
         if (Array.isArray(data.documents)) {
@@ -69,7 +70,7 @@ export const RAGPanel = () => {
   const handleClearKB = async () => {
     if (!window.confirm('Are you sure you want to clear all documents from the knowledge base?')) return;
     try {
-      const res = await fetch('https://atlasmultiagentsystem.onrender.com/api/v1/rag/documents', {
+      const res = await fetch(`${API_URL}/api/v1/rag/documents`, {
         method: 'DELETE'
       });
       if (res.ok) {
@@ -119,7 +120,7 @@ export const RAGPanel = () => {
         payload.source = selectedSource;
       }
 
-      const response = await fetch('https://atlasmultiagentsystem.onrender.com/api/v1/rag/query', {
+      const response = await fetch(`${API_URL}/api/v1/rag/query`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

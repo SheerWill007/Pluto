@@ -44,7 +44,7 @@ export const Topbar = ({ showTopology, setShowTopology }) => {
     <header className="h-20 bg-white/35 dark:bg-stone-900/40 backdrop-blur-2xl border-b border-white/50 dark:border-stone-700 flex items-center justify-between px-8 z-20 shrink-0 shadow-[0_2px_20px_rgba(168,152,120,0.06)]">
       <div className="flex items-center gap-3">
         <h1 className="text-lg font-extrabold text-stone-800 dark:text-stone-200 font-sans tracking-wide">
-          Atlas Agent Console
+          Pluto Agent Console
         </h1>
         <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/40 dark:bg-stone-800/40 border border-white/50 dark:border-stone-700">
           <PulseOrb status={status} />

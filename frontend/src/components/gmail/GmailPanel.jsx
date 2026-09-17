@@ -3,6 +3,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { useAgentStore } from '../../store/useAgentStore';
 import EmailList from './EmailList';
 import SummaryCard from './SummaryCard';
+import { API_URL } from '../../lib/api';
 import GlassCard from '../ui/GlassCard';
 import { Mail, Sparkles, LogIn, RefreshCw, Check, LogOut } from 'lucide-react';
 
@@ -27,7 +28,7 @@ export const GmailPanel = () => {
   const checkGmailStatus = async () => {
     if (!user?.token) return false;
     try {
-      const response = await fetch('https://atlasmultiagentsystem.onrender.com/api/v1/gmail/status', {
+      const response = await fetch(`${API_URL}/api/v1/gmail/status`, {
         headers: {
           'Authorization': `Bearer ${user?.token}`
         }
@@ -54,7 +55,7 @@ export const GmailPanel = () => {
 
     try {
       // Build query string params
-      let url = `https://atlasmultiagentsystem.onrender.com/api/v1/gmail/list?max_results=12&label=${labelFilter}`;
+      let url = `${API_URL}/api/v1/gmail/list?max_results=12&label=${labelFilter}`;
       if (searchQuery.trim()) {
         url += `&q=${encodeURIComponent(searchQuery.trim())}`;
       }
@@ -99,7 +100,7 @@ export const GmailPanel = () => {
     setNodeActive('gmail_agent', true);
 
     try {
-      const response = await fetch('https://atlasmultiagentsystem.onrender.com/api/v1/gmail/connect', {
+      const response = await fetch(`${API_URL}/api/v1/gmail/connect`, {
         headers: {
           'Authorization': `Bearer ${user?.token}`
         }
@@ -150,7 +151,7 @@ export const GmailPanel = () => {
 
   const handleDisconnect = async () => {
     try {
-      const response = await fetch('https://atlasmultiagentsystem.onrender.com/api/v1/gmail/disconnect', {
+      const response = await fetch(`${API_URL}/api/v1/gmail/disconnect`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -180,7 +181,7 @@ export const GmailPanel = () => {
     setSummary('');
 
     try {
-      const response = await fetch('https://atlasmultiagentsystem.onrender.com/api/v1/gmail/summarize', {
+      const response = await fetch(`${API_URL}/api/v1/gmail/summarize`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -222,7 +223,7 @@ export const GmailPanel = () => {
     setSummary('');
 
     try {
-      const response = await fetch('https://atlasmultiagentsystem.onrender.com/api/v1/gmail/summarize', {
+      const response = await fetch(`${API_URL}/api/v1/gmail/summarize`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

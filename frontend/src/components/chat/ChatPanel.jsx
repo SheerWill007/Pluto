@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { useAgentStore } from '../../store/useAgentStore';
+import { API_URL } from '../../lib/api';
 import { useChatStore } from '../../store/useChatStore';
 import MessageBubble from './MessageBubble';
 import GlassCard from '../ui/GlassCard';
@@ -134,7 +135,7 @@ export const ChatPanel = () => {
         const timeoutId = setTimeout(() => controller.abort(), 45000);
 
         try {
-          const response = await fetch('https://atlasmultiagentsystem.onrender.com/api/v1/chat', {
+          const response = await fetch(`${API_URL}/api/v1/chat`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             signal: controller.signal,

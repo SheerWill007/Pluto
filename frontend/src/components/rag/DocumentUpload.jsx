@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { Upload, FileText, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { UploadCloud, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { API_URL } from '../../lib/api';
 import { gsap } from 'gsap';
 
 export const DocumentUpload = ({ onUploadSuccess }) => {
@@ -67,7 +68,7 @@ export const DocumentUpload = ({ onUploadSuccess }) => {
     formData.append("file", file);
 
     try {
-      const response = await fetch("https://atlasmultiagentsystem.onrender.com/api/v1/rag/ingest", {
+      const response = await fetch(`${API_URL}/api/v1/rag/ingest`, {
         method: "POST",
         body: formData,
       });

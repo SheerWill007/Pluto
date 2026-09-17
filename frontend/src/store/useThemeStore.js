@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-const THEME_STORAGE_KEY = 'atlas_theme';
+const THEME_STORAGE_KEY = 'pluto_theme';
 
 const getInitialTheme = () => {
   try {
