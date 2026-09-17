@@ -4,8 +4,10 @@ import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
 import GlowCursor from './components/ui/GlowCursor';
 import { useAppStore } from './store/useAppStore';
+import { useLenis } from './hooks/useLenis';
 
 function App() {
+  useLenis();
   const isAuthenticated = useAppStore((s) => s.isAuthenticated);
   const fetchBackendConfig = useAppStore((s) => s.fetchBackendConfig);
 
