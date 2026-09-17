@@ -7,7 +7,7 @@ ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
 
 class Settings(BaseSettings):
     # App
-    APP_NAME: str = "Atlas Agent"
+    APP_NAME: str = "Pluto Agent"
     DEBUG: bool = False
 
     # LLM - Universal multi-provider configuration
@@ -61,7 +61,7 @@ class Settings(BaseSettings):
     SCOPES: str = "https://www.googleapis.com/auth/gmail.readonly"
     GMAIL_WEB_CLIENT_ID: str = ""
     GMAIL_WEB_CLIENT_SECRET: str = ""
-    GMAIL_REDIRECT_URI: str = "https://atlasmultiagentsystem.onrender.com/api/v1/gmail/callback"
+    GMAIL_REDIRECT_URI: str = "https://pluto-agent.onrender.com/api/v1/gmail/callback"
 
     # Auth / JWT
     JWT_SECRET_KEY: str = ""

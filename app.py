@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title=settings.APP_NAME,
-    description="Production-ready Multi-Agent AI System with RAG",
+    description="Pluto -- Multi-Agent AI System with RAG",
     version="1.0.0",
 )
 
