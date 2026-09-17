@@ -1,0 +1,39 @@
+# Web framework
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+python-multipart==0.0.9
+
+# Config
+pydantic==2.8.2
+pydantic-settings==2.4.0
+
+# LLM + Agents
+langchain>=0.3.0
+langchain-openai>=0.2.0
+langchain-community>=0.3.0
+langchain-anthropic>=0.2.0
+langchain-google-genai>=1.0.0
+langgraph>=0.2.20
+
+# Vector DB
+chromadb==0.5.11
+
+# Document loaders
+pypdf==4.3.1
+python-docx==1.1.2
+unstructured==0.22.32
+
+# Memory / Caching
+redis==5.1.0
+psycopg2-binary==2.9.9
+
+# Gmail
+google-api-python-client==2.149.0
+google-auth-httplib2==0.2.0
+google-auth-oauthlib==1.2.1
+
+# Utilities
+python-dotenv==1.0.1
+tenacity==8.5.0
+
+pyjwt==2.9.0
