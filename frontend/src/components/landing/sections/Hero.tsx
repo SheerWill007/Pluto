@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { EyebrowBadge } from "../ui/EyebrowBadge";
 import { HudFrame } from "../ui/HudFrame";
-import { DIALOGUES, FRAME_COUNT, HERO_TEXT_FADE_END, framePath } from "../../../lib/hero";
+import { DIALOGUES, FRAME_COUNT, HERO_TEXT_FADE_END, framePath } from "@/lib/hero";
 
 export function Hero() {
   const sectionRef = useRef<HTMLElement | null>(null);

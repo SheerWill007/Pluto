@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { EyebrowBadge } from "../ui/EyebrowBadge";
 import { HudFrame } from "../ui/HudFrame";
-import { BEATS, CINE_FRAME_COUNT, cineFramePath } from "../../../lib/cinematic";
+import { BEATS, CINE_FRAME_COUNT, cineFramePath } from "@/lib/cinematic";
 
 export function CinematicReveal() {
   const sectionRef = useRef<HTMLElement | null>(null);

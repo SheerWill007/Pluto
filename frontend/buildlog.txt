@@ -1,0 +1,16 @@
+npm notice run pluto-frontend@0.0.0 build
+npm notice run vite build
+[36mvite v8.0.16 [32mbuilding client environment for production...[36m[39m
+[2Ktransforming...✓ 7381 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                     0.67 kB │ gzip:   0.39 kB
+dist/assets/index-DBcRsyaI.css     94.89 kB │ gzip:  14.39 kB
+dist/assets/index-CiuIHSZ2.js   1,583.53 kB │ gzip: 452.01 kB
+
+[32m✓ built in 12.83s[39m
+[33m[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
