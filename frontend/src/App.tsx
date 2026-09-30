@@ -7,13 +7,8 @@ import GlowCursor from './components/ui/GlowCursor';
 import { useAppStore } from './store/useAppStore';
 import { useLenis } from './hooks/useLenis';
 
-// Lenis + cursor — only mounted on non-landing routes to avoid double Lenis instances
-function AppShell() {
-  const { pathname } = useLocation();
-  const isLanding = pathname === '/';
+function RouteEnhancements() {
   useLenis();
-
-  if (isLanding) return null;
 
   return (
     <GlowCursor
@@ -29,6 +24,11 @@ function AppShell() {
       idleFade
     />
   );
+}
+
+function AppShell() {
+  const { pathname } = useLocation();
+  return pathname === '/' ? null : <RouteEnhancements />;
 }
 
 function AppRoutes() {
