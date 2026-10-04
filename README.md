@@ -1,7 +1,7 @@
 # Pluto
 
 <p align="center">
-	<img src="frontend/public/pluto.png" alt="Pluto" />
+	<img src="frontend/public/pluto.png" alt="Pluto" width="160" />
 </p>
 
 Pluto is a robust, multi-agent AI orchestrator designed to streamline complex workflows involving document intelligence (RAG), email triage (Gmail integration), and dynamic code generation. By leveraging a flexible LLM provider abstraction layer, Pluto offers seamless access to industry-leading language models while maintaining a sophisticated, highly-responsive frontend workspace.
