@@ -23,7 +23,7 @@
     "ogl": "^1.0.11",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
-    "react-router-dom": "^7.18.3",
+    "react-router-dom": "^7.18.4",
     "three": "^0.184.0",
     "zustand": "^5.0.14"
   },
