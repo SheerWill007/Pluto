@@ -35,7 +35,7 @@ pypdf>=6.6,<7
 docx2txt>=0.8,<0.10
 
 # Memory / Caching
-redis>=5.1.0,<7
+redis>=8.1.0,<9
 psycopg2-binary>=2.9.9,<3
 
 # Gmail
