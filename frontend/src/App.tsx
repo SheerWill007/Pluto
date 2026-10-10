@@ -4,9 +4,7 @@ import { useAppStore } from './store/useAppStore';
 import { useLenis } from './hooks/useLenis';
 import ErrorBoundary from './components/ErrorBoundary';
 
-// Route-level code splitting: the three.js landing page, the auth page, and the
-// dashboard are separate chunks, so each visitor only downloads what they open.
-const LandingPage = lazy(() => import('./pages/LandingPage'));
+// Route-level code splitting
 const Login = lazy(() => import('./pages/Login'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const GlowCursor = lazy(() => import('./components/ui/GlowCursor'));
@@ -34,7 +32,7 @@ function RouteEnhancements() {
 
 function AppShell() {
   const { pathname } = useLocation();
-  return pathname === '/' ? null : <RouteEnhancements />;
+  return pathname === '/login' ? null : <RouteEnhancements />;
 }
 
 function PageFallback() {
@@ -56,7 +54,7 @@ function AppRoutes() {
     <ErrorBoundary resetKey={pathname}>
       <Suspense fallback={<PageFallback />}>
         <Routes>
-          <Route path="/" element={<LandingPage />} />
+          <Route path="/" element={<Navigate to={isAuthenticated ? '/chat' : '/login'} replace />} />
           <Route path="/login" element={isAuthenticated ? <Navigate to="/chat" replace /> : <Login />} />
           {DASHBOARD_ROUTES.map((path) => (
             <Route
