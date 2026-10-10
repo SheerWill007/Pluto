@@ -3,8 +3,10 @@ Google Gemini LLM Provider with automatic thought_signature preservation for too
 """
 
 import logging
-from .base_provider import BaseLLMProvider
+
 from langchain_google_genai import ChatGoogleGenerativeAI, chat_models
+
+from .base_provider import BaseLLMProvider
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +40,7 @@ def _apply_thought_signature_patch():
         system_instruction, contents = orig_parse_history(input_messages, convert_system_message_to_human, **kwargs)
         # Re-attach thought_signatures to matching function_call parts in model content turns
         ai_msgs_with_sig = [
-            m for m in input_messages 
+            m for m in input_messages
             if isinstance(m, chat_models.AIMessage) and m.additional_kwargs.get("thought_signatures")
         ]
         if ai_msgs_with_sig:

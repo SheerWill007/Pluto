@@ -2,8 +2,9 @@
 OpenAI LLM Provider
 """
 
-from .base_provider import BaseLLMProvider
 from langchain_openai import ChatOpenAI
+
+from .base_provider import BaseLLMProvider
 
 
 class OpenAIProvider(BaseLLMProvider):
@@ -41,14 +42,16 @@ class OpenAIProvider(BaseLLMProvider):
                 "api_key": api_key,
                 "model": model_name,
                 "temperature": temperature,
+                "timeout": 60,
+                "max_retries": 2,
             }
-            
+
             if base_url:
                 kwargs["base_url"] = base_url
-            
+
             if max_tokens:
                 kwargs["max_tokens"] = max_tokens
-            
+
             self._model = ChatOpenAI(**kwargs)
-            
+
         return self._model

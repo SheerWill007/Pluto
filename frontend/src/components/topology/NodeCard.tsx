@@ -3,6 +3,7 @@ import { Html } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useAgentStore } from '../../store/useAgentStore';
+import type { NodeState } from '../../lib/types';
 import { 
   Cpu, MessageSquare, Database, Mail, HardDrive, 
   Layers, Power, Terminal, Globe, Key, Code 
@@ -21,7 +22,7 @@ const iconMap = {
   ai_apis: Globe,
 };
 
-export const NodeCard = ({ id, label, position, statusInfo = {} }) => {
+export const NodeCard = ({ id, label, position, statusInfo = {} as Partial<NodeState> }) => {
   const { 
     activeNodes, 
     setHoveredNode, 

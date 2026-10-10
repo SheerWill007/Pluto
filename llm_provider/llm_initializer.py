@@ -4,9 +4,12 @@ Universal zero-config LLM model resolution with intelligent auto-detection, comp
 """
 
 import logging
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
 from langchain_core.language_models.llms import LLM
+
 from config.settings import settings
+
 from .provider_factory import LLMProviderFactory
 
 logger = logging.getLogger(__name__)
@@ -31,9 +34,11 @@ ACTIVE_MODELS_MAP = {
         }
     },
     "anthropic": {
-        "default": "claude-3-5-sonnet-20240620",
+        "default": "claude-sonnet-5-5",
         "deprecated": {
-            "claude-3-opus-20240229": "claude-3-5-sonnet-20240620",
+            "claude-3-opus-20240229": "claude-sonnet-5-5",
+            "claude-3-5-sonnet-20240620": "claude-sonnet-5-5",
+            "claude-3-haiku-20240307": "claude-haiku-5-5",
         }
     },
     "groq": {
@@ -71,6 +76,22 @@ def is_model_compatible_with_provider(provider: str, model_name: str) -> bool:
     return True
 
 
+def server_key_for_provider(provider: Optional[str], base_config: Dict[str, Any]) -> Optional[str]:
+    """The server-configured API key for `provider`, or None if the server has no key for it."""
+    explicit = {
+        "google": settings.GOOGLE_API_KEY or settings.GEMINI_API_KEY,
+        "openai": settings.OPENAI_API_KEY,
+        "anthropic": settings.ANTHROPIC_API_KEY,
+        "groq": settings.GROQ_API_KEY,
+        "openrouter": settings.OPENROUTER_API_KEY,
+    }.get(provider or "")
+    if explicit and explicit.strip():
+        return explicit.strip()
+    if provider and provider == base_config.get("provider"):
+        return base_config.get("api_key")
+    return None
+
+
 def resolve_llm_config(
     provider: Optional[str] = None,
     model: Optional[str] = None,
@@ -92,9 +113,10 @@ def resolve_llm_config(
     req_provider = provider.strip().lower() if (provider and provider.strip()) else None
     req_model = model.strip() if (model and model.strip()) else None
 
-    # Determine provider & API key
+    # Determine provider & API key. A server-side key is only ever sent to the provider it
+    # belongs to; otherwise picking another provider in the UI would leak it to that vendor.
     resolved_provider = req_provider or base_config["provider"]
-    resolved_key = req_api_key or base_config.get("api_key")
+    resolved_key = req_api_key or server_key_for_provider(resolved_provider, base_config)
 
     # Fallback key inference ONLY if resolved_provider is somehow still undetermined
     if not resolved_provider and resolved_key:
@@ -207,7 +229,7 @@ def validate_provider_config(provider_type: str) -> bool:
         llm_provider.validate_config()
         return True
     except Exception as e:
-        raise ValueError(f"Invalid configuration for {provider_type}: {str(e)}")
+        raise ValueError(f"Invalid configuration for {provider_type}: {str(e)}") from e
 
 
 def list_available_providers() -> Dict[str, str]:

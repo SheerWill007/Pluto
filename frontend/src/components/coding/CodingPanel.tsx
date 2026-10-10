@@ -10,6 +10,7 @@ import {
   XCircle, Send, MessageSquare, FileCode, Play
 } from 'lucide-react';
 import { gsap } from 'gsap';
+import { clickableProps } from '../../lib/a11y';
 
 export const CodingPanel = () => {
   const { apiKey } = useAppStore();
@@ -170,7 +171,7 @@ export const CodingPanel = () => {
             {sessions.map((sess) => (
               <div
                 key={sess.id}
-                onClick={() => setActiveSessionId(sess.id)}
+                {...clickableProps(() => setActiveSessionId(sess.id), { selected: sess.id === activeSessionId })}
                 className={`group flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200 border ${
                   sess.id === activeSessionId
                     ? 'bg-amber-500/10 dark:bg-amber-500/20 border-amber-500/20 dark:border-amber-500/30 text-amber-900 dark:text-amber-200 font-medium'
@@ -241,8 +242,8 @@ export const CodingPanel = () => {
                 return (
                   <div key={gen.id} className="space-y-2">
                     {/* Prompt Header */}
-                    <div 
-                      onClick={() => setActiveBlockId(gen.id)}
+                    <div
+                      {...clickableProps(() => setActiveBlockId(gen.id), { selected: isSelected })}
                       className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs cursor-pointer border transition-all ${
                         isSelected 
                           ? 'bg-amber-500/10 dark:bg-amber-500/20 border-amber-500/20 dark:border-amber-500/30 text-amber-900 dark:text-amber-200' 

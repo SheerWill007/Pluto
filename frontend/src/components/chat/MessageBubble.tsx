@@ -1,12 +1,17 @@
-import React from 'react';
-import { useAppStore } from '../../store/useAppStore';
-import { Cpu, Clock, Layers, User } from 'lucide-react';
+import { Cpu, Clock, Layers, User, Wrench } from 'lucide-react';
 import MarkdownFormatter from '../ui/MarkdownFormatter';
+import type { ChatMessage } from '../../lib/types';
 
-export const MessageBubble = ({ message }) => {
-  const { role, content, model, tokens, latency } = message;
+const TOOL_LABELS: Record<string, string> = {
+  web_search: 'Web search',
+  search_document: 'Documents',
+  gmail_tool: 'Gmail',
+  code_tool: 'Code pipeline',
+};
+
+export const MessageBubble = ({ message }: { message: ChatMessage }) => {
+  const { role, content, model, tokens, latency, tools, streaming } = message;
   const isUser = role === 'user';
-  const { activeProvider } = useAppStore();
 
   return (
     <div className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'} mb-6`}>
@@ -19,7 +24,15 @@ export const MessageBubble = ({ message }) => {
               : 'bg-white/90 dark:bg-stone-900/90 border-stone-200/60 dark:border-stone-700 text-stone-800 dark:text-stone-200 rounded-tl-none shadow-[0_4px_24px_rgba(0,0,0,0.04)]'
           }`}
         >
-          <MarkdownFormatter text={content} />
+          {streaming && !content ? (
+            <span className="inline-flex gap-1 py-1" aria-label="Assistant is typing">
+              {[0, 1, 2].map((i) => (
+                <span key={i} className="h-1.5 w-1.5 rounded-full bg-stone-400 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
+              ))}
+            </span>
+          ) : (
+            <MarkdownFormatter text={content} />
+          )}
         </div>
 
         {/* Info Badges */}
@@ -37,6 +50,13 @@ export const MessageBubble = ({ message }) => {
                 <span>{model || 'system'}</span>
               </div>
               
+              {tools && tools.length > 0 && (
+                <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/30 border border-amber-200/60 dark:border-amber-800/60" title="Tools used by the agent">
+                  <Wrench className="h-2.5 w-2.5 text-amber-600 dark:text-amber-400" />
+                  <span>{tools.map((t) => TOOL_LABELS[t] || t).join(', ')}</span>
+                </div>
+              )}
+
               {/* Token Count Badge */}
               <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-stone-100/80 dark:bg-stone-800/80 border border-stone-200/40 dark:border-stone-700">
                 <Layers className="h-2.5 w-2.5 text-beige-700 dark:text-beige-400" />
@@ -44,7 +64,7 @@ export const MessageBubble = ({ message }) => {
               </div>
 
               {/* Latency Badge */}
-              {latency && (
+              {!!latency && (
                 <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-stone-100/80 dark:bg-stone-800/80 border border-stone-200/40 dark:border-stone-700">
                   <Clock className="h-2.5 w-2.5 text-beige-600 dark:text-beige-400" />
                   <span>{latency}s</span>

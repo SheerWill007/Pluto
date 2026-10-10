@@ -4,7 +4,8 @@ Defines the contract for all LLM provider implementations
 """
 
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
+
 from langchain_core.language_models.llms import LLM
 
 
@@ -17,7 +18,7 @@ class BaseLLMProvider(ABC):
     def __init__(self, **kwargs):
         """
         Initialize the provider with configuration.
-        
+
         Args:
             **kwargs: Provider-specific configuration parameters
         """
@@ -28,7 +29,7 @@ class BaseLLMProvider(ABC):
     def get_model(self) -> LLM:
         """
         Get the LLM model instance.
-        
+
         Returns:
             LLM: A LangChain LLM instance
         """
@@ -38,10 +39,10 @@ class BaseLLMProvider(ABC):
     def validate_config(self) -> bool:
         """
         Validate that all required configuration is present.
-        
+
         Returns:
             bool: True if configuration is valid
-            
+
         Raises:
             ValueError: If configuration is invalid or missing required fields
         """
@@ -50,11 +51,11 @@ class BaseLLMProvider(ABC):
     def invoke(self, prompt: str, **kwargs) -> str:
         """
         Invoke the model with a prompt.
-        
+
         Args:
             prompt: The input prompt
             **kwargs: Additional parameters for the model
-            
+
         Returns:
             str: The model's response
         """
@@ -65,11 +66,11 @@ class BaseLLMProvider(ABC):
     def batch_invoke(self, prompts: List[str], **kwargs) -> List[str]:
         """
         Invoke the model with multiple prompts.
-        
+
         Args:
             prompts: List of input prompts
             **kwargs: Additional parameters for the model
-            
+
         Returns:
             List[str]: List of model responses
         """

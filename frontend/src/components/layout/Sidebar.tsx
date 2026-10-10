@@ -66,7 +66,7 @@ export const Sidebar = () => {
               />
             )}
             <button
-              onClick={logout}
+              onClick={() => logout()}
               title={`Sign out (${user.email})`}
               className="p-2.5 rounded-2xl text-stone-400 dark:text-stone-500 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-white/40 dark:hover:bg-stone-800/40 border border-transparent hover:border-white/50 dark:hover:border-stone-700 transition-all duration-300"
             >
@@ -75,7 +75,7 @@ export const Sidebar = () => {
           </div>
         )}
         <div className="text-stone-400 dark:text-stone-500 text-[10px] font-bold tracking-wider font-mono">
-          v1.0
+          v2.0
         </div>
       </div>
     </aside>

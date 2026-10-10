@@ -1,9 +1,12 @@
 import React, { useState, useRef } from 'react';
 import { UploadCloud, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
-import { API_URL } from '../../lib/api';
+import { apiFetch, errorMessage } from '../../lib/api';
 import { gsap } from 'gsap';
 
-export const DocumentUpload = ({ onUploadSuccess }) => {
+const ALLOWED_EXTENSIONS = ['pdf', 'txt', 'md', 'docx', 'csv', 'json'];
+const MAX_UPLOAD_MB = 20;
+
+export const DocumentUpload = ({ onUploadSuccess }: { onUploadSuccess?: (data: { filename: string; chunks_stored: number }) => void }) => {
   const [dragActive, setDragActive] = useState(false);
   const [uploadState, setUploadState] = useState('idle'); // 'idle', 'uploading', 'success', 'error'
   const [errorMsg, setErrorMsg] = useState('');
@@ -54,10 +57,15 @@ export const DocumentUpload = ({ onUploadSuccess }) => {
   };
 
   const uploadFile = async (file) => {
-    const ext = file.name.split('.').pop().toLowerCase();
-    if (!['pdf', 'txt', 'md', 'docx', 'csv', 'json'].includes(ext)) {
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    if (!ALLOWED_EXTENSIONS.includes(ext)) {
       setUploadState('error');
       setErrorMsg('Unsupported file format. Please upload PDF, TXT, MD, DOCX, CSV or JSON.');
+      return;
+    }
+    if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
+      setUploadState('error');
+      setErrorMsg(`File is larger than the ${MAX_UPLOAD_MB} MB limit.`);
       return;
     }
 
@@ -68,24 +76,18 @@ export const DocumentUpload = ({ onUploadSuccess }) => {
     formData.append("file", file);
 
     try {
-      const response = await fetch(`${API_URL}/api/v1/rag/ingest`, {
-        method: "POST",
+      // Parsing and embedding large PDFs can take a while
+      const data = await apiFetch<{ filename: string; chunks_stored: number }>('/rag/ingest', {
+        method: 'POST',
         body: formData,
+        timeoutMs: 300_000,
       });
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.detail || "Upload process failed.");
-      }
-      
-      const data = await response.json();
       setUploadState('success');
       triggerRippleBurst();
-      if (onUploadSuccess) onUploadSuccess(data);
+      onUploadSuccess?.(data);
     } catch (err) {
-      console.error(err);
       setUploadState('error');
-      setErrorMsg(err.message || 'File ingestion failed.');
+      setErrorMsg(errorMessage(err, 'File ingestion failed.'));
     }
   };
 
@@ -120,12 +122,12 @@ export const DocumentUpload = ({ onUploadSuccess }) => {
       <div className="relative z-10 flex flex-col items-center justify-center text-center">
         {uploadState === 'idle' && (
           <>
-            <Upload className="h-10 w-10 text-stone-400 dark:text-stone-500 mb-3 animate-bounce" />
+            <UploadCloud className="h-10 w-10 text-stone-400 dark:text-stone-500 mb-3 animate-bounce" />
             <p className="text-sm font-bold text-stone-700 dark:text-stone-200 mb-1">
               Drag & drop document files here
             </p>
             <p className="text-xs text-stone-400 dark:text-stone-500 mb-4">
-              Supports PDF, TXT, MD, DOCX or CSV up to 10MB
+              Supports PDF, TXT, MD, DOCX, CSV or JSON up to {MAX_UPLOAD_MB}MB
             </p>
             <button
               onClick={onButtonClick}

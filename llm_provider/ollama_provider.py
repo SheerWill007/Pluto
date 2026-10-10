@@ -2,8 +2,9 @@
 Ollama LLM Provider
 """
 
+from langchain_ollama import ChatOllama
+
 from .base_provider import BaseLLMProvider
-from langchain_community.chat_models import ChatOllama
 
 
 class OllamaProvider(BaseLLMProvider):

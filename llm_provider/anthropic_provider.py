@@ -2,8 +2,9 @@
 Anthropic LLM Provider
 """
 
-from .base_provider import BaseLLMProvider
 from langchain_anthropic import ChatAnthropic
+
+from .base_provider import BaseLLMProvider
 
 
 class AnthropicProvider(BaseLLMProvider):
@@ -24,7 +25,7 @@ class AnthropicProvider(BaseLLMProvider):
             self.validate_config()
             api_key = self.config.get("api_key") or self.config.get("anthropic_api_key")
             base_url = self.config.get("base_url") or self.config.get("anthropic_api_url")
-            model_name = self.config.get("model", "claude-3-haiku-20240307")
+            model_name = self.config.get("model") or "claude-sonnet-5-5"
             temperature = self.config.get("temperature", 0.7)
             max_tokens = self.config.get("max_tokens")
 
@@ -34,6 +35,8 @@ class AnthropicProvider(BaseLLMProvider):
                 model_name=model_name,
                 anthropic_api_url=base_url,
                 temperature=temperature,
-                max_tokens_to_sample=max_tokens,
+                max_tokens=max_tokens or 4096,
+                timeout=60,
+                max_retries=2,
             )
         return self._model

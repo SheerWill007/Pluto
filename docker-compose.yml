@@ -1,36 +1,71 @@
-version: "3.9"
+# Full stack: web (nginx + SPA) -> api (FastAPI) -> postgres, redis, persistent ChromaDB.
+#
+#   cp .env.example .env    # then set JWT_SECRET_KEY, TOKEN_ENCRYPTION_KEY, POSTGRES_PASSWORD, LLM keys
+#   docker compose up --build
+#   open http://localhost:8080
+
+name: pluto
 
 services:
+  web:
+    build:
+      context: ./frontend
+    ports:
+      - "8080:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
   api:
     build: .
-    ports:
-      - "8000:8000"
-    env_file:
-      - .env
+    env_file: .env
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      POSTGRES_URL: postgresql://${POSTGRES_USER:-pluto}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-pluto}
+      REDIS_URL: redis://redis:6379/0
+      # The SPA is served from the same origin via nginx
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
     volumes:
-      - ./chroma_db:/app/chroma_db
+      - chroma_data:/app/data/chroma
+    expose:
+      - "8000"
     depends_on:
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-pluto}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-pluto}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     restart: unless-stopped
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     restart: unless-stopped
 
-  # Uncomment to enable PostgreSQL
-  # postgres:
-  #   image: postgres:16-alpine
-  #   environment:
-  #     POSTGRES_USER: user
-  #     POSTGRES_PASSWORD: password
-  #     POSTGRES_DB: agentdb
-  #   ports:
-  #     - "5432:5432"
-  #   volumes:
-  #     - pgdata:/var/lib/postgresql/data
-  #   restart: unless-stopped
-
-# volumes:
-#   pgdata:
+volumes:
+  pg_data:
+  redis_data:
+  chroma_data:

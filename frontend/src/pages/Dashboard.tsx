@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { Suspense, lazy, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from '../components/layout/Sidebar';
 import Topbar from '../components/layout/Topbar';
@@ -7,9 +7,10 @@ import ChatPanel from '../components/chat/ChatPanel';
 import RAGPanel from '../components/rag/RAGPanel';
 import GmailPanel from '../components/gmail/GmailPanel';
 import CodingPanel from '../components/coding/CodingPanel';
-import AgentTopologyCanvas from '../components/topology/AgentTopologyCanvas';
-import { useAppStore } from '../store/useAppStore';
 import { useAgentStatus } from '../hooks/useAgentStatus';
+
+// three.js + react-three-fiber are by far the heaviest dependencies; load them on demand
+const AgentTopologyCanvas = lazy(() => import('../components/topology/AgentTopologyCanvas'));
 
 export const Dashboard = () => {
   const location = useLocation();
@@ -33,7 +34,9 @@ export const Dashboard = () => {
         <div className="flex-1 flex h-full min-h-0 overflow-hidden">
           {showTopology ? (
             <div className="flex-grow h-full min-h-0 overflow-hidden z-10 flex flex-col">
-              <AgentTopologyCanvas onClose={() => setShowTopology(false)} />
+              <Suspense fallback={<div className="flex-1 flex items-center justify-center text-xs font-mono text-stone-400">Loading topology…</div>}>
+                <AgentTopologyCanvas onClose={() => setShowTopology(false)} />
+              </Suspense>
             </div>
           ) : (
             <main className="flex-1 flex flex-col h-full min-h-0 overflow-hidden bg-transparent z-10 relative">

@@ -2,17 +2,25 @@ import { create } from 'zustand';
 
 const THEME_STORAGE_KEY = 'pluto_theme';
 
-const getInitialTheme = () => {
+type Theme = 'light' | 'dark';
+
+interface ThemeState {
+  theme: Theme;
+  toggleTheme: () => void;
+  setTheme: (theme: Theme) => void;
+}
+
+const getInitialTheme = (): Theme => {
   try {
     const saved = localStorage.getItem(THEME_STORAGE_KEY);
     if (saved === 'dark' || saved === 'light') {
       return saved;
     }
-  } catch {}
+  } catch { /* storage unavailable */ }
   return 'light';
 };
 
-const applyThemeClass = (theme) => {
+const applyThemeClass = (theme: Theme) => {
   if (typeof document !== 'undefined') {
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
@@ -26,15 +34,15 @@ const applyThemeClass = (theme) => {
 const initialTheme = getInitialTheme();
 applyThemeClass(initialTheme);
 
-export const useThemeStore = create((set) => ({
+export const useThemeStore = create<ThemeState>((set) => ({
   theme: initialTheme,
 
   toggleTheme: () => {
     set((state) => {
-      const nextTheme = state.theme === 'dark' ? 'light' : 'dark';
+      const nextTheme: Theme = state.theme === 'dark' ? 'light' : 'dark';
       try {
         localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
-      } catch {}
+      } catch { /* storage unavailable */ }
       applyThemeClass(nextTheme);
       return { theme: nextTheme };
     });
@@ -43,7 +51,7 @@ export const useThemeStore = create((set) => ({
   setTheme: (newTheme) => {
     try {
       localStorage.setItem(THEME_STORAGE_KEY, newTheme);
-    } catch {}
+    } catch { /* storage unavailable */ }
     applyThemeClass(newTheme);
     set({ theme: newTheme });
   }

@@ -1,57 +1,51 @@
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
-from langchain.tools import Tool
-from rag.vector_store import get_retriever
+
+from agents.common import LLMSelection, track_llm_call
 from llm_provider.llm_initializer import get_llm_model
+from rag.vector_store import search
 
-def code_context_retriever(query):
-    try:
-        model = get_llm_model(temperature=0, max_tokens=2048)
+PROMPT = ChatPromptTemplate.from_template("""
+You are a Code Context Retrieval Agent.
+Your job is NOT to write code.
+Given a user request and the retrieved project documents, identify and return only the information that would help another AI agent generate correct code.
 
-        retriever = get_retriever()
-        chunks = retriever.invoke(query)
-        context = "\n\n".join(chunk.page_content for chunk in chunks)
+User Request:{question}
+Context (if provided) :{context}
 
-        prompt = ChatPromptTemplate.from_template("""
-        You are a Code Context Retrieval Agent.
-        Your job is NOT to write code.
-        Given a user request and the retrieved project documents, identify and return only the information that would help another AI agent generate correct code.
+Instructions:
+- Analyze the user's request carefully.
+- Extract only the relevant classes, functions, APIs, file names, configuration values, and code snippets related to the request.
+- Ignore unrelated information.
+- Preserve existing naming conventions and project structure.
+- If multiple files are relevant, organize the information by file.
+- Do not summarize away important technical details.
+- Do not generate new code.
+- Do not invent missing information.
+- If no relevant information is found, return:
+  "No relevant context found."
 
-        User Request:{question}
-        Context (if provided) :{context}
+Return the result in the following format:
 
-        Instructions:
-        - Analyze the user's request carefully.
-        - Extract only the relevant classes, functions, APIs, file names, configuration values, and code snippets related to the request.
-        - Ignore unrelated information.
-        - Preserve existing naming conventions and project structure.
-        - If multiple files are relevant, organize the information by file.
-        - Do not summarize away important technical details.
-        - Do not generate new code.
-        - Do not invent missing information.
-        - If no relevant information is found, return:
-          "No relevant context found."
+Relevant Files:
+- file_name.py
+  - Functions:
+  - Classes:
+  - Important Details:
 
-        Return the result in the following format:
+Relevant Code Snippets:
+```python
+# existing code snippets
+```
+""")
 
-        Relevant Files:
-        - file_name.py
-          - Functions:
-          - Classes:
-          - Important Details:
 
-        Relevant Code Snippets:
-        ```python
-        # existing code snippets```
-       """
-       )
-        chain = prompt|model|StrOutputParser()
-        return chain.invoke({ "question":query , "context":context})
-    except Exception as e:
-        return f"Error occurred while running search agent {e}"
-
-code_context = Tool(
-    name = "code_research",
-    func=code_context_retriever,
-    description="Use this to retrieve existing project code and structure before generating new code"
-)
+def code_context_retriever(query: str, owner: str, llm: LLMSelection = LLMSelection()) -> str:
+    docs = [doc for doc, _ in search(owner, query, top_k=4)]
+    if not docs:
+        # Nothing uploaded: skip an LLM round trip that could only answer "no context"
+        return "No relevant context found."
+    model = get_llm_model(provider=llm.provider, model=llm.model, api_key=llm.api_key, temperature=0, max_tokens=2048)
+    chain = PROMPT | model | StrOutputParser()
+    with track_llm_call("code_context", llm.provider):
+        return chain.invoke({"question": query, "context": "\n\n".join(d.page_content for d in docs)})

@@ -59,6 +59,7 @@ export const EdgeBeam = ({ start, end, isActive = false }) => {
   return (
     <group>
       {/* Underlying connection line */}
+      {/* @ts-expect-error R3F's three.js <line> collides with the SVG <line> JSX type */}
       <line ref={lineRef} geometry={lineGeometry}>
         <lineBasicMaterial 
           color={isActive ? "#d97706" : "#d6d3d1"} 

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
-import { useAgentStore } from '../../store/useAgentStore';
+import { useAgentStore, type Layout } from '../../store/useAgentStore';
 import { useThemeStore } from '../../store/useThemeStore';
 import NodeCard from './NodeCard';
 import EdgeBeam from './EdgeBeam';
@@ -40,7 +40,7 @@ const CONNECTIONS = [
 
 // WebGL Liquid Shader Background
 const BackgroundShader = () => {
-  const meshRef = useRef();
+  const meshRef = useRef<THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>>(null);
   const { theme } = useThemeStore();
 
   const uniforms = useMemo(() => ({
@@ -115,7 +115,7 @@ export const AgentTopologyCanvas = ({ onClose }) => {
   const { activeLayout, setActiveLayout, agentStates, activeNodes, customPositions, isDraggingNode } = useAgentStore();
 
   const nodePositions = useMemo(() => {
-    const coords = {};
+    const coords: Record<string, [number, number, number]> = {};
 
     if (activeLayout === 'parallel') {
       coords.orchestrator = [0, 0.5, 0];
@@ -202,7 +202,7 @@ export const AgentTopologyCanvas = ({ onClose }) => {
           return (
             <button
               key={mode.id}
-              onClick={() => setActiveLayout(mode.id)}
+              onClick={() => setActiveLayout(mode.id as Layout)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-semibold transition-all duration-300 backdrop-blur-md cursor-pointer ${
                 isActive
                   ? 'bg-beige-150 dark:bg-stone-800 border-beige-200 dark:border-stone-700 text-beige-700 dark:text-stone-200 shadow-[0_2px_8px_rgba(168,152,120,0.08)]'

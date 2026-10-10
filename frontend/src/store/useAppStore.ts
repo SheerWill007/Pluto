@@ -1,210 +1,280 @@
 import { create } from 'zustand';
-import { API_URL } from '../lib/api';
+import { apiFetch, configureApi, errorMessage } from '../lib/api';
+import { DEFAULT_MODELS, type AuthResponse, type AuthUser, type Provider } from '../lib/types';
 
-const DEMO_EMAIL = 'admin@pluto.ai';
-const DEMO_PASSWORD = 'pluto2024';
+const USER_KEY = 'pluto_auth_user';
+const keyStorageName = (provider: string) => `ai_agent_key_${provider}`;
 
-// Helper to get api keys from localStorage
-const getStoredKey = (provider) => {
-  const key = localStorage.getItem(`ai_agent_key_${provider}`) || '';
-  // Automatically purge invalid OpenAI keys that don't start with sk- (e.g. accidental pastes)
-  if (provider === 'openai' && key && !key.trim().startsWith('sk-')) {
-    localStorage.removeItem(`ai_agent_key_${provider}`);
-    return '';
-  }
-  // Automatically purge invalid Google keys (must start with AQ. or AIza)
-  if (provider === 'google' && key && !key.trim().startsWith('AQ.') && !key.trim().startsWith('AIza')) {
-    localStorage.removeItem(`ai_agent_key_${provider}`);
-    return '';
-  }
-  return key;
-};
+// ---------------------------------------------------------------------------
+// Persistence helpers (storage can throw in private mode / when disabled)
+// ---------------------------------------------------------------------------
 
-// Helper to save api keys to localStorage
-const storeKey = (provider, key) => {
-  if (!key || !key.trim()) {
-    localStorage.removeItem(`ai_agent_key_${provider}`);
-  } else {
-    localStorage.setItem(`ai_agent_key_${provider}`, key.trim());
-  }
-};
-
-const getStoredUser = () => {
+const safeGet = (storage: Storage, key: string) => {
   try {
-    const raw = localStorage.getItem('pluto_auth_user');
-    return raw ? JSON.parse(raw) : null;
+    return storage.getItem(key);
   } catch {
     return null;
   }
 };
 
-const storeUser = (user) => {
-  if (user) {
-    localStorage.setItem('pluto_auth_user', JSON.stringify(user));
-  } else {
-    localStorage.removeItem('pluto_auth_user');
+const safeSet = (storage: Storage, key: string, value: string | null) => {
+  try {
+    if (value === null) storage.removeItem(key);
+    else storage.setItem(key, value);
+  } catch {
+    /* storage unavailable */
   }
 };
 
-export const useAppStore = create((set, get) => ({
-  user: getStoredUser(),
-  isAuthenticated: !!getStoredUser(),
+const getStoredKey = (provider: string): string => {
+  const key = (safeGet(localStorage, keyStorageName(provider)) || '').trim();
+  // Purge keys that obviously belong to another provider (accidental pastes)
+  const invalid =
+    (provider === 'openai' && key && !key.startsWith('sk-')) ||
+    (provider === 'google' && key && !key.startsWith('AQ.') && !key.startsWith('AIza'));
+  if (invalid) {
+    safeSet(localStorage, keyStorageName(provider), null);
+    return '';
+  }
+  return key;
+};
 
-  activeSection: 'chat', // 'rag', 'chat', 'gmail', 'coding'
-  activeProvider: 'google', // 'openai', 'anthropic', 'google', 'groq', 'openrouter', 'ollama'
-  modelName: 'gemini-flash-lite-latest',
-  apiKey: getStoredKey('google'),
-  ollamaBaseUrl: 'http://localhost:11434',
-  gmailConnected: false,
-  agentMode: false,
-  systemPrompt: 'You are an advanced Orchestrator Agent. You have dynamic access to sub-agents (RAG, Gmail) to retrieve knowledge and execute tasks. Be direct, helpful, and concise.',
-  
-  // Auth
-  login: async (email, password, remember = true) => {
+/** "Remember this device" sessions live in localStorage; others only for the tab's lifetime. */
+const loadStoredUser = (): AuthUser | null => {
+  for (const storage of [localStorage, sessionStorage]) {
+    const raw = safeGet(storage, USER_KEY);
+    if (!raw) continue;
     try {
-      const response = await fetch(`${API_URL}/api/v1/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), password })
-      });
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.detail || 'Invalid email or password.');
-      }
-      const user = await response.json();
-      if (remember) {
-        storeUser(user);
-      }
-      set({ user, isAuthenticated: true });
-      return { success: true };
-    } catch (err) {
-      return { success: false, error: err.message };
+      const user = JSON.parse(raw) as AuthUser;
+      // Sessions from before token auth, or expired ones, can't be used
+      if (user?.token && (!user.expiresAt || user.expiresAt > Date.now())) return user;
+    } catch {
+      /* corrupt entry */
     }
-  },
+    safeSet(storage, USER_KEY, null);
+  }
+  return null;
+};
 
-  signup: async (name, email, password) => {
-    try {
-      const response = await fetch(`${API_URL}/api/v1/auth/signup`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), email: email.trim().toLowerCase(), password })
-      });
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.detail || 'Sign up failed.');
-      }
-      const user = await response.json();
-      storeUser(user);
-      set({ user, isAuthenticated: true });
-      return { success: true };
-    } catch (err) {
-      return { success: false, error: err.message };
-    }
-  },
+const persistUser = (user: AuthUser | null, remember: boolean) => {
+  safeSet(localStorage, USER_KEY, null);
+  safeSet(sessionStorage, USER_KEY, null);
+  if (user) safeSet(remember ? localStorage : sessionStorage, USER_KEY, JSON.stringify(user));
+};
 
-  loginWithGoogle: async (googleUser) => {
-    try {
-      const response = await fetch(`${API_URL}/api/v1/auth/google`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: googleUser.email,
-          name: googleUser.name,
-          picture: googleUser.picture
-        })
-      });
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.detail || 'Google authentication sync failed.');
-      }
-      const user = await response.json();
-      storeUser(user);
-      set({ user, isAuthenticated: true });
-      return { success: true };
-    } catch (err) {
-      console.error("Google login backend sync error:", err);
-      // Fallback: authenticates locally on frontend anyway so the user is not locked out
-      storeUser(googleUser);
-      set({ user: googleUser, isAuthenticated: true });
-      return { success: true };
-    }
-  },
+const toUser = (res: AuthResponse): AuthUser => ({
+  id: String(res.id),
+  email: res.email,
+  name: res.name,
+  picture: res.picture,
+  auth_provider: res.auth_provider,
+  token: res.token,
+  expiresAt: Date.now() + res.expires_in * 1000,
+});
 
-  loginAsGuest: () => {
-    const guestUser = {
-      id: 'guest',
-      email: 'guest@local',
-      name: 'Guest User',
-      picture: null,
-      auth_provider: 'guest'
-    };
-    // Don't persist guest to localStorage
-    set({ user: guestUser, isAuthenticated: true });
+// Not a discriminated union: narrowing on it needs strictNullChecks, which this project doesn't enable yet
+type Result = { success: boolean; error?: string };
+
+export type Section = 'chat' | 'rag' | 'gmail' | 'coding';
+
+export interface GoogleCredential {
+  access_token?: string;
+  id_token?: string;
+  code?: string;
+  code_verifier?: string;
+  redirect_uri?: string;
+}
+
+interface BackendConfig {
+  provider: Provider;
+  model: string;
+  has_key: boolean;
+  temperature: number;
+  max_tokens: number;
+}
+
+export interface AuthConfig {
+  google_client_id: string;
+  has_google_auth: boolean;
+  allow_guest: boolean;
+}
+
+interface AppState {
+  user: AuthUser | null;
+  isAuthenticated: boolean;
+  sessionExpired: boolean;
+
+  activeSection: Section;
+  activeProvider: Provider;
+  modelName: string;
+  apiKey: string;
+  ollamaBaseUrl: string;
+  gmailConnected: boolean;
+  agentMode: boolean;
+  systemPrompt: string;
+  backendConfig: BackendConfig | null;
+  authConfig: AuthConfig | null;
+
+  login: (email: string, password: string, remember?: boolean) => Promise<Result>;
+  signup: (name: string, email: string, password: string) => Promise<Result>;
+  loginWithGoogle: (credential: GoogleCredential) => Promise<Result>;
+  loginAsGuest: () => Promise<Result>;
+  logout: (opts?: { expired?: boolean }) => void;
+
+  fetchBackendConfig: () => Promise<void>;
+  fetchAuthConfig: () => Promise<void>;
+  setActiveSection: (section: Section) => void;
+  setActiveProvider: (provider: Provider) => void;
+  setModelName: (modelName: string) => void;
+  setApiKey: (key: string) => void;
+  clearApiKey: () => void;
+  setOllamaBaseUrl: (url: string) => void;
+  setGmailConnected: (connected: boolean) => void;
+  setAgentMode: (mode: boolean) => void;
+  setSystemPrompt: (prompt: string) => void;
+}
+
+const initialUser = loadStoredUser();
+
+export const useAppStore = create<AppState>((set, get) => {
+  const establishSession = (res: AuthResponse, remember: boolean): Result => {
+    const user = toUser(res);
+    persistUser(user, remember);
+    set({ user, isAuthenticated: true, sessionExpired: false });
     return { success: true };
-  },
+  };
 
-  logout: () => {
-    storeUser(null);
-    set({ user: null, isAuthenticated: false });
-  },
+  return {
+    user: initialUser,
+    isAuthenticated: !!initialUser,
+    sessionExpired: false,
 
-  backendConfig: null,
-  fetchBackendConfig: async () => {
-    try {
-      const response = await fetch(`${API_URL}/api/v1/config/llm`);
-      if (response.ok) {
-        const data = await response.json();
+    activeSection: 'chat',
+    activeProvider: 'google',
+    modelName: DEFAULT_MODELS.google,
+    apiKey: getStoredKey('google'),
+    ollamaBaseUrl: 'http://localhost:11434',
+    gmailConnected: false,
+    agentMode: false,
+    systemPrompt:
+      'You are an advanced Orchestrator Agent. You have dynamic access to sub-agents (RAG, Gmail) to retrieve knowledge and execute tasks. Be direct, helpful, and concise.',
+    backendConfig: null,
+    authConfig: null,
+
+    login: async (email, password, remember = true) => {
+      try {
+        const res = await apiFetch<AuthResponse>('/auth/login', {
+          json: { email: email.trim(), password },
+          auth: false,
+        });
+        return establishSession(res, remember);
+      } catch (err) {
+        return { success: false, error: errorMessage(err, 'Invalid email or password.') };
+      }
+    },
+
+    signup: async (name, email, password) => {
+      try {
+        const res = await apiFetch<AuthResponse>('/auth/signup', {
+          json: { name: name.trim(), email: email.trim().toLowerCase(), password },
+          auth: false,
+        });
+        return establishSession(res, true);
+      } catch (err) {
+        return { success: false, error: errorMessage(err, 'Sign up failed.') };
+      }
+    },
+
+    loginWithGoogle: async (credential) => {
+      try {
+        // The server verifies the Google token and derives the identity from it
+        const res = await apiFetch<AuthResponse>('/auth/google', { json: credential, auth: false });
+        return establishSession(res, true);
+      } catch (err) {
+        return { success: false, error: errorMessage(err, 'Google sign-in failed.') };
+      }
+    },
+
+    loginAsGuest: async () => {
+      try {
+        const res = await apiFetch<AuthResponse>('/auth/guest', { method: 'POST', auth: false });
+        return establishSession(res, false);
+      } catch (err) {
+        return { success: false, error: errorMessage(err, 'Guest access is unavailable.') };
+      }
+    },
+
+    logout: (opts) => {
+      persistUser(null, false);
+      set({ user: null, isAuthenticated: false, sessionExpired: !!opts?.expired, gmailConnected: false });
+    },
+
+    fetchBackendConfig: async () => {
+      try {
+        const data = await apiFetch<BackendConfig>('/config/llm', { auth: false, timeoutMs: 10_000 });
         set({ backendConfig: data });
-        // Sync UI provider and model to the active backend configuration
+        // Sync the UI to the server's active provider and model
         if (data.has_key && data.provider) {
-          const currentCustomKey = getStoredKey(data.provider);
           set({
             activeProvider: data.provider,
             modelName: data.model,
-            apiKey: currentCustomKey || ''
+            apiKey: getStoredKey(data.provider),
           });
         }
+      } catch (err) {
+        console.warn('Could not sync backend LLM config:', err);
       }
-    } catch (err) {
-      console.warn("Could not sync backend LLM config:", err);
-    }
-  },
+    },
 
-  // Navigation
-  setActiveSection: (section) => set({ activeSection: section }),
-  
-  // LLM Config
-  setActiveProvider: (provider) => {
-    let defaultModel = 'gpt-4o-mini';
-    if (provider === 'anthropic') defaultModel = 'claude-3-5-sonnet-20240620';
-    if (provider === 'google') defaultModel = 'gemini-flash-lite-latest';
-    if (provider === 'groq') defaultModel = 'llama-3.1-8b-instant';
-    if (provider === 'openrouter') defaultModel = 'meta-llama/llama-3-8b-instruct:free';
-    if (provider === 'ollama') defaultModel = 'llama3';
+    fetchAuthConfig: async () => {
+      try {
+        set({ authConfig: await apiFetch<AuthConfig>('/config/auth', { auth: false, timeoutMs: 10_000 }) });
+      } catch (err) {
+        console.warn('Could not load auth config:', err);
+      }
+    },
 
-    set({ 
-      activeProvider: provider,
-      apiKey: getStoredKey(provider),
-      modelName: defaultModel
-    });
-  },
-  
-  setModelName: (modelName) => set({ modelName }),
-  
-  setApiKey: (key) => {
-    const provider = get().activeProvider;
-    storeKey(provider, key);
-    set({ apiKey: key });
-  },
+    setActiveSection: (section) => set({ activeSection: section }),
 
-  clearApiKey: () => {
-    const provider = get().activeProvider;
-    localStorage.removeItem(`ai_agent_key_${provider}`);
-    set({ apiKey: '' });
+    setActiveProvider: (provider) =>
+      set({
+        activeProvider: provider,
+        apiKey: getStoredKey(provider),
+        modelName: DEFAULT_MODELS[provider] || DEFAULT_MODELS.openai,
+      }),
+
+    setModelName: (modelName) => set({ modelName }),
+
+    setApiKey: (key) => {
+      safeSet(localStorage, keyStorageName(get().activeProvider), key && key.trim() ? key.trim() : null);
+      set({ apiKey: key });
+    },
+
+    clearApiKey: () => {
+      safeSet(localStorage, keyStorageName(get().activeProvider), null);
+      set({ apiKey: '' });
+    },
+
+    setOllamaBaseUrl: (url) => set({ ollamaBaseUrl: url }),
+    setGmailConnected: (connected) => set({ gmailConnected: connected }),
+    setAgentMode: (mode) => set({ agentMode: mode }),
+    setSystemPrompt: (prompt) => set({ systemPrompt: prompt }),
+  };
+});
+
+configureApi({
+  getToken: () => useAppStore.getState().user?.token,
+  onUnauthorized: () => {
+    if (useAppStore.getState().isAuthenticated) useAppStore.getState().logout({ expired: true });
   },
-  
-  setOllamaBaseUrl: (url) => set({ ollamaBaseUrl: url }),
-  setGmailConnected: (connected) => set({ gmailConnected: connected }),
-  setAgentMode: (mode) => set({ agentMode: mode }),
-  setSystemPrompt: (prompt) => set({ systemPrompt: prompt }),
-}));
+});
+
+/** Shared request fields describing the user's model choice. */
+export const llmFields = () => {
+  const { activeProvider, modelName, apiKey } = useAppStore.getState();
+  return {
+    provider: activeProvider,
+    model: modelName,
+    api_key: apiKey && apiKey.trim() ? apiKey.trim() : null,
+  };
+};

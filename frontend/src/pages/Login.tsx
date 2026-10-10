@@ -1,22 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { Cpu, Mail, Lock, Eye, EyeOff, LogIn, Sparkles, Shield, Zap, User } from 'lucide-react';
 import GlassCard from '../components/ui/GlassCard';
 import PulseOrb from '../components/ui/PulseOrb';
 import ParticleText from '../components/ui/ParticleText';
 import ScrollExpand from '../components/ui/ScrollExpand';
 import WebThreads from '../components/ui/WebThreads';
-import { useAppStore } from '../store/useAppStore';
+import { useAppStore, type GoogleCredential } from '../store/useAppStore';
+import { errorMessage } from '../lib/api';
 
-const floatingVariants = {
+const floatingVariants: Variants = {
   animate: (i) => ({
     y: i % 2 === 0 ? [-8, 8, -8] : [8, -8, 8],
     rotate: i % 2 === 0 ? [-1, 1, -1] : [1, -1, 1],
     transition: {
       duration: 6 + i,
       repeat: Infinity,
-      ease: 'easeInOut'
+      ease: 'easeInOut' as const
     }
   })
 };
@@ -75,6 +76,7 @@ export const Login = () => {
   const login = useAppStore((s) => s.login);
   const loginWithGoogle = useAppStore((s) => s.loginWithGoogle);
   const signup = useAppStore((s) => s.signup);
+  const loginAsGuest = useAppStore((s) => s.loginAsGuest);
   
   const [isSignUp, setIsSignUp] = useState(false);
   const [showLoginForm, setShowLoginForm] = useState(false);
@@ -86,14 +88,18 @@ export const Login = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Read configured Google client_id and client_secret from localStorage or environment
-  const [googleClientId, setGoogleClientId] = useState(
-    localStorage.getItem('pluto_google_client_id') || import.meta.env.VITE_GOOGLE_CLIENT_ID || ''
-  );
-  const [googleClientSecret, setGoogleClientSecret] = useState(
-    localStorage.getItem('pluto_google_client_secret') || import.meta.env.VITE_GOOGLE_CLIENT_SECRET || ''
-  );
-  const cardGlowRef = useRef(null);
+  // The Google client ID is public; it comes from the server (or a build-time override).
+  // The client secret never touches the browser: code exchange happens server-side.
+  const authConfig = useAppStore((s) => s.authConfig);
+  const fetchAuthConfig = useAppStore((s) => s.fetchAuthConfig);
+  const sessionExpired = useAppStore((s) => s.sessionExpired);
+  const googleClientId = (authConfig?.google_client_id || import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim();
+  const allowGuest = authConfig?.allow_guest ?? true;
+  const cardGlowRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!authConfig) fetchAuthConfig();
+  }, [authConfig, fetchAuthConfig]);
 
   const handleCardMouseMove = (e) => {
     if (!cardGlowRef.current) return;
@@ -110,115 +116,56 @@ export const Login = () => {
     cardGlowRef.current.style.opacity = '0';
   };
 
-  // Check URL query parameters for auth code on mount (PKCE redirect callback)
+  const finishGoogleLogin = async (credential: GoogleCredential) => {
+    setIsLoading(true);
+    const res = await loginWithGoogle(credential);
+    setIsLoading(false);
+    if (res.success) navigate('/chat');
+    else setError(`Google sign-in failed: ${res.error}`);
+  };
+
+  // Redirect-flow callback: hand the authorization code to the server for exchange
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
-    if (code) {
-      setIsLoading(true);
-      setError('');
-      const verifier = sessionStorage.getItem('google_oauth_code_verifier');
-      
-      if (!verifier) {
-        setError('OAuth verification code verifier is missing. Please try signing in again.');
-        setIsLoading(false);
-        return;
-      }
+    if (!code) return;
 
-      // Exchange Authorization Code for Access Token using PKCE verifier + client_secret
-      const storedSecret = sessionStorage.getItem('google_oauth_client_secret') || googleClientSecret;
-      const tokenParams = {
-          client_id: googleClientId,
-          client_secret: storedSecret,
-          code_verifier: verifier,
-          grant_type: 'authorization_code',
-          code: code,
-          redirect_uri: window.location.origin
-      };
-      fetch('https://oauth2.googleapis.com/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams(tokenParams)
-      })
-        .then((res) => {
-          if (!res.ok) {
-            return res.json().then((errInfo) => {
-              throw new Error(errInfo.error_description || 'Failed to exchange authorization code');
-            });
-          }
-          return res.json();
-        })
-        .then((tokens) => {
-          const accessToken = tokens.access_token;
-          // Fetch Google user profile details
-          return fetch(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${accessToken}`);
-        })
-        .then((res) => {
-          if (!res.ok) throw new Error('Failed to retrieve Google user profile');
-          return res.json();
-        })
-        .then((data) => {
-          loginWithGoogle({
-            email: data.email.trim().toLowerCase(),
-            name: data.name || 'Google User',
-            picture: data.picture || ''
-          });
-          // Clean query parameters from URL and session storage
-          window.history.replaceState(null, null, window.location.pathname);
-          sessionStorage.removeItem('google_oauth_code_verifier');
-          sessionStorage.removeItem('google_oauth_client_secret');
-          navigate('/chat');
-        })
-        .catch((err) => {
-          setError(`Google login failed: ${err.message}`);
-        })
-        .finally(() => {
-          setIsLoading(false);
-        });
+    const verifier = sessionStorage.getItem('google_oauth_code_verifier');
+    const expectedState = sessionStorage.getItem('google_oauth_state');
+    sessionStorage.removeItem('google_oauth_code_verifier');
+    sessionStorage.removeItem('google_oauth_state');
+    window.history.replaceState(null, '', window.location.pathname);
+
+    if (!verifier || !expectedState || params.get('state') !== expectedState) {
+      setError('Google sign-in could not be verified. Please try again.');
+      return;
     }
-  }, [loginWithGoogle, googleClientId, googleClientSecret, navigate]);
+    finishGoogleLogin({ code, code_verifier: verifier, redirect_uri: window.location.origin });
+    // Runs once on mount by design
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleGoogleLogin = async () => {
-    if (!googleClientId.trim()) {
-      setError('Please configure a valid Google Client ID.');
+    if (!googleClientId) {
+      setError('Google sign-in is not configured on this server.');
       return;
     }
     setError('');
-    // Persist configured client ID
-    localStorage.setItem('pluto_google_client_id', googleClientId.trim());
-    localStorage.setItem('pluto_google_client_secret', googleClientSecret.trim());
-    sessionStorage.setItem('google_oauth_client_secret', googleClientSecret.trim());
 
-    // 1. Prefer Google Identity Services (GIS) popup flow (does not suffer from redirect_uri mismatch)
+    // 1. Prefer the Google Identity Services popup (no redirect_uri mismatch issues)
     if (window.google?.accounts?.oauth2) {
       try {
         const tokenClient = window.google.accounts.oauth2.initTokenClient({
-          client_id: googleClientId.trim(),
+          client_id: googleClientId,
           scope: 'openid profile email',
-          callback: async (tokenResponse) => {
+          callback: (tokenResponse) => {
             if (tokenResponse.error) {
               setError(`Google Sign-In: ${tokenResponse.error_description || tokenResponse.error}`);
               return;
             }
-            try {
-              setIsLoading(true);
-              const userInfoRes = await fetch(
-                `https://www.googleapis.com/oauth2/v3/userinfo?access_token=${tokenResponse.access_token}`
-              );
-              if (!userInfoRes.ok) throw new Error('Failed to retrieve user profile from Google');
-              const data = await userInfoRes.json();
-              await loginWithGoogle({
-                email: data.email.trim().toLowerCase(),
-                name: data.name || 'Google User',
-                picture: data.picture || ''
-              });
-              navigate('/chat');
-            } catch (err) {
-              setError(`Google login failed: ${err.message}`);
-            } finally {
-              setIsLoading(false);
-            }
-          }
+            // The server verifies this token with Google and reads the identity itself
+            finishGoogleLogin({ access_token: tokenResponse.access_token });
+          },
         });
         tokenClient.requestAccessToken({ prompt: 'consent' });
         return;
@@ -227,22 +174,36 @@ export const Login = () => {
       }
     }
 
-    // 2. Fallback: Standard OAuth redirect flow
+    // 2. Fallback: authorization-code redirect with PKCE and a CSRF state value
     try {
-      // Generate PKCE code verifier and challenge
       const verifier = generateRandomString(64);
+      const state = generateRandomString(32);
       sessionStorage.setItem('google_oauth_code_verifier', verifier);
+      sessionStorage.setItem('google_oauth_state', state);
       const challenge = await generateChallengeOfVerifier(verifier);
-
-      const redirectUri = window.location.origin;
-      // Construct auth url using response_type=code with PKCE parameters
-      const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(googleClientId.trim())}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=openid%20profile%20email&code_challenge=${encodeURIComponent(challenge)}&code_challenge_method=S256`;
-      
-      // Redirect in the same tab
-      window.location.href = googleAuthUrl;
+      const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+      url.search = new URLSearchParams({
+        client_id: googleClientId,
+        redirect_uri: window.location.origin,
+        response_type: 'code',
+        scope: 'openid profile email',
+        code_challenge: challenge,
+        code_challenge_method: 'S256',
+        state,
+      }).toString();
+      window.location.href = url.toString();
     } catch (err) {
-      setError(`Failed to initiate Google Login: ${err.message}`);
+      setError(`Failed to initiate Google Login: ${errorMessage(err)}`);
     }
+  };
+
+  const handleGuest = async () => {
+    setError('');
+    setIsLoading(true);
+    const res = await loginAsGuest();
+    setIsLoading(false);
+    if (res.success) navigate('/chat');
+    else setError(res.error);
   };
 
   const handleSubmit = async (e) => {
@@ -531,7 +492,7 @@ export const Login = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder={isSignUp ? "Create a password" : "Enter your password"}
-                    autoComplete="current-password"
+                    autoComplete={isSignUp ? 'new-password' : 'current-password'}
                     className="w-full bg-white/70 dark:bg-stone-800/70 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-200 placeholder:text-stone-400 dark:placeholder:text-stone-500 text-sm rounded-xl pl-10 pr-10 py-2.5 focus:outline-none focus:border-beige-400 dark:focus:border-stone-500 backdrop-blur-md transition-colors"
                   />
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400 dark:text-stone-500" />
@@ -558,8 +519,15 @@ export const Login = () => {
                 </label>
               )}
 
+              {sessionExpired && !error && (
+                <p role="status" className="text-xs text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl px-3 py-2 font-medium">
+                  Your session expired. Please sign in again.
+                </p>
+              )}
+
               {error && (
                 <motion.p
+                  role="alert"
                   initial={{ opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="text-xs text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border border-rose-100 dark:border-rose-900 rounded-xl px-3 py-2 font-medium"
@@ -591,6 +559,8 @@ export const Login = () => {
               <button
                 type="button"
                 onClick={handleGoogleLogin}
+                disabled={isLoading || !googleClientId}
+                title={googleClientId ? undefined : 'Google sign-in is not configured on this server'}
                 className="flex items-center justify-center gap-2.5 w-full py-3 mt-1 rounded-xl border border-stone-200/80 dark:border-stone-700 bg-white dark:bg-stone-800 hover:bg-stone-50 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-200 font-semibold text-sm transition-all shadow-[0_2px_8px_rgba(0,0,0,0.02)] cursor-pointer"
               >
                 <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24">
@@ -615,18 +585,17 @@ export const Login = () => {
               </button>
 
               {/* Continue as Guest button */}
+              {allowGuest && (
               <button
                 type="button"
-                onClick={() => {
-                  // Skip authentication and continue as guest
-                  useAppStore.getState().loginAsGuest();
-                  navigate('/chat');
-                }}
+                onClick={handleGuest}
+                disabled={isLoading}
                 className="flex items-center justify-center gap-2.5 w-full py-2.5 mt-1 rounded-xl border border-stone-200/60 dark:border-stone-700 bg-white/40 dark:bg-stone-800/40 hover:bg-white/60 dark:hover:bg-stone-800/70 text-stone-600 dark:text-stone-300 font-medium text-sm transition-all shadow-[0_2px_8px_rgba(0,0,0,0.01)] cursor-pointer backdrop-blur-sm"
               >
                 <Sparkles className="h-4 w-4" />
                 <span>Continue as Guest</span>
               </button>
+              )}
             </form>
 
             <div className="mt-6 text-center text-xs select-none border-t border-stone-100 dark:border-stone-800 pt-4">

@@ -30,13 +30,13 @@ const ScrollExpand = ({
   enabled = true,
   lockExpanded = false,
   gradientColors = ['#3a2f22', '#151210'],
-  children,
+  children = undefined,
   className = '',
-  style,
-  onMouseMove,
-  onMouseLeave,
-  onOverlayMouseMove,
-  onOverlayMouseLeave,
+  style = undefined,
+  onMouseMove = undefined,
+  onMouseLeave = undefined,
+  onOverlayMouseMove = undefined,
+  onOverlayMouseLeave = undefined,
   ...rest
 }) => {
   const rootRef = useRef(null);
@@ -49,7 +49,7 @@ const ScrollExpand = ({
   const scrimRef = useRef(null);
   const hintRef = useRef(null);
 
-  const propsRef = useRef({});
+  const propsRef = useRef<Record<string, any>>({});
   propsRef.current = {
     startWidth,
     startHeight,

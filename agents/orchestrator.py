@@ -1,132 +1,172 @@
 """
-Agent Orchestrator
+Agent Orchestrator: a LangGraph tool-calling loop over web search, code generation,
+and (in agent mode) the user's documents and Gmail.
+
+Tools are built per request and closed over the calling user, so a tool can only ever
+touch that user's data.
 """
 
 import logging
-from typing import Annotated, TypedDict, Optional, List
-from langgraph.graph import StateGraph, END, START
+from typing import Annotated, Iterator, Optional, TypedDict
+
+from langchain_core.messages import AIMessage, AIMessageChunk, ToolMessage
+from langchain_core.tools import Tool
+from langgraph.errors import GraphRecursionError
+from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
-from langchain_core.tools import Tool
 
-# Tools
-from tools.retriever import document_retriever
-from tools.web_search import web_search
-from tools.code_pipeline import code_tool
+from agents.common import LLMSelection, message_text, track_llm_call
 from agents.gmail_agent import run_gmail_agent
+from core.security import CurrentUser
 from llm_provider.llm_initializer import get_llm_model
+from tools.code_pipeline import make_code_tool
+from tools.gmail_tools import GmailError
+from tools.retriever import make_document_retriever
+from tools.web_search import web_search
 
 logger = logging.getLogger(__name__)
 
-
-# Define Gmail tool for the orchestrator
-def orchestrator_gmail_tool(query: str) -> str:
-    """Useful to search or summarize user emails when asked about Gmail or inbox contents."""
-    return run_gmail_agent(max_email=5)
-
-
-gmail_tool = Tool(
-    name="gmail_tool",
-    func=orchestrator_gmail_tool,
-    description="Get recent emails and summarize them from the user's inbox."
+# Each agent<->tools round trip uses 2 steps; this allows ~5 tool calls before giving up
+RECURSION_LIMIT = 12
+LOOP_LIMIT_MESSAGE = (
+    "I wasn't able to finish this request within the allowed number of tool calls. "
+    "Try rephrasing it or breaking it into smaller steps."
 )
-
-# Global tools pool
-ALL_TOOLS = {
-    "web_search": web_search,
-    "code_tool": code_tool,
-    "document_retriever": document_retriever,
-    "gmail_tool": gmail_tool
-}
 
 
 class AgentState(TypedDict):
     messages: Annotated[list, add_messages]
-    provider: Optional[str]
-    model_name: Optional[str]
-    agent_mode: Optional[bool]
-    api_key: Optional[str]
 
 
-def orchestrator(state: AgentState):
-    provider = state.get("provider")
-    model_name = state.get("model_name")
-    agent_mode = state.get("agent_mode", False)
-    api_key = state.get("api_key")
+def _make_gmail_tool(user: CurrentUser, llm: LLMSelection) -> Tool:
+    def gmail_tool(query: str) -> str:
+        try:
+            return run_gmail_agent(user_id=user.db_id, max_email=5, provider=llm.provider,
+                                   model_name=llm.model, api_key=llm.api_key)
+        except GmailError as e:
+            return str(e)
 
-    # Resolve dynamic LLM with potential key override
-    llm = get_llm_model(
-        provider=provider,
-        model=model_name,
-        api_key=api_key,
-        temperature=0.7,
-        max_tokens=2048
+    return Tool(
+        name="gmail_tool",
+        func=gmail_tool,
+        description="Get recent emails and summarize them from the user's inbox.",
     )
 
-    # Determine which tools are active
-    active_tools = [web_search, code_tool]
+
+def build_tools(user: CurrentUser, llm: LLMSelection, agent_mode: bool) -> list:
+    tools = [web_search, make_code_tool(user.id, llm)]
     if agent_mode:
-        active_tools.append(document_retriever)
-        active_tools.append(gmail_tool)
-
-    llm_with_tool = llm.bind_tools(active_tools)
-    result = llm_with_tool.invoke(state["messages"])
-    return {"messages": [result]}
+        tools.append(make_document_retriever(user.id))
+        if not user.is_guest:
+            tools.append(_make_gmail_tool(user, llm))
+    return tools
 
 
-def should_continue(state: AgentState):
-    last_msg = state["messages"][-1]
-    if hasattr(last_msg, 'tool_calls') and last_msg.tool_calls:
-        return "tools"
-    return END
+def build_graph(tools: list, llm: LLMSelection):
+    model = get_llm_model(provider=llm.provider, model=llm.model, api_key=llm.api_key,
+                          temperature=0.7, max_tokens=2048)
+    try:
+        model_with_tools = model.bind_tools(tools)
+    except NotImplementedError:
+        # Some local models (e.g. older Ollama integrations) don't support tool calling
+        logger.info("Model does not support tool calling; running without tools")
+        model_with_tools, tools = model, []
 
+    def agent(state: AgentState):
+        return {"messages": [model_with_tools.invoke(state["messages"])]}
 
-def build_graph(agent_mode: bool = False):
+    def should_continue(state: AgentState):
+        last = state["messages"][-1]
+        return "tools" if getattr(last, "tool_calls", None) else END
+
     graph = StateGraph(AgentState)
-
-    # We bind all tools to the ToolNode so the graph can execute them
-    tools_list = list(ALL_TOOLS.values())
-    
-    graph.add_node("agent", orchestrator)
-    graph.add_node("tools", ToolNode(tools_list))
-
+    graph.add_node("agent", agent)
     graph.add_edge(START, "agent")
-    graph.add_conditional_edges("agent", should_continue)
-    graph.add_edge("tools", "agent")
-
+    if tools:
+        graph.add_node("tools", ToolNode(tools))
+        graph.add_conditional_edges("agent", should_continue)
+        graph.add_edge("tools", "agent")
+    else:
+        graph.add_edge("agent", END)
     return graph.compile()
+
+
+def build_messages(user_message: str, context: Optional[dict], system_prompt: Optional[str]) -> list:
+    messages = []
+    if system_prompt:
+        messages.append(("system", system_prompt))
+    if context and context.get("remembered_facts"):
+        facts_text = "\n".join(context["remembered_facts"])
+        messages.append(("system", f"Here are known facts about this user:\n{facts_text}"))
+    for msg in (context or {}).get("recent_history", []):
+        messages.append(("human" if msg["role"] == "user" else "ai", msg["content"]))
+    messages.append(("human", user_message))
+    return messages
 
 
 def run_orchestrator(
     user_message: str,
-    context: dict = None,
-    provider: Optional[str] = None,
-    model_name: Optional[str] = None,
+    user: CurrentUser,
+    llm: LLMSelection,
+    context: Optional[dict] = None,
     agent_mode: bool = False,
-    api_key: Optional[str] = None
+    system_prompt: Optional[str] = None,
 ) -> str:
-    messages = []
-    if context and context.get("remembered_facts"):
-        facts_text = "\n".join(context["remembered_facts"])
-        messages.append(("system", f"Here are known facts about this user:\n{facts_text}"))
+    app = build_graph(build_tools(user, llm, agent_mode), llm)
+    with track_llm_call("orchestrator", llm.provider):
+        try:
+            result = app.invoke(
+                {"messages": build_messages(user_message, context, system_prompt)},
+                config={"recursion_limit": RECURSION_LIMIT},
+            )
+        except GraphRecursionError:
+            return LOOP_LIMIT_MESSAGE
+    return message_text(result["messages"][-1].content)
 
-    if context and context.get("recent_history"):
-        for msg in context["recent_history"]:
-            role = "human" if msg["role"] == "user" else "ai"
-            messages.append((role, msg["content"]))
 
-    messages.append(("human", user_message))
-
-    app = build_graph(agent_mode=agent_mode)
-    
-    state_input = {
-        "messages": messages,
-        "provider": provider,
-        "model_name": model_name,
-        "agent_mode": agent_mode,
-        "api_key": api_key
-    }
-    
-    result = app.invoke(state_input)
-    last_message = result["messages"][-1]
-    return last_message.content if hasattr(last_message, 'content') else str(last_message)
+def stream_orchestrator(
+    user_message: str,
+    user: CurrentUser,
+    llm: LLMSelection,
+    context: Optional[dict] = None,
+    agent_mode: bool = False,
+    system_prompt: Optional[str] = None,
+) -> Iterator[dict]:
+    """
+    Yields events as the agent works:
+      {"type": "token", "content": str}        -- incremental answer text
+      {"type": "tool_start", "tools": [str]}   -- the agent decided to call tools
+      {"type": "tool_end", "tools": [str]}     -- tool results returned
+      {"type": "done", "content": str}         -- the complete final answer
+    """
+    app = build_graph(build_tools(user, llm, agent_mode), llm)
+    final_text = ""
+    with track_llm_call("orchestrator_stream", llm.provider):
+        try:
+            for mode, payload in app.stream(
+                {"messages": build_messages(user_message, context, system_prompt)},
+                config={"recursion_limit": RECURSION_LIMIT},
+                stream_mode=["messages", "updates"],
+            ):
+                if mode == "messages":
+                    chunk, metadata = payload
+                    if metadata.get("langgraph_node") == "agent" and isinstance(chunk, (AIMessageChunk, AIMessage)):
+                        text = message_text(chunk.content)
+                        if text:
+                            yield {"type": "token", "content": text}
+                elif mode == "updates":
+                    for node, update in (payload or {}).items():
+                        messages = (update or {}).get("messages", [])
+                        if node == "agent" and messages:
+                            last = messages[-1]
+                            if getattr(last, "tool_calls", None):
+                                yield {"type": "tool_start", "tools": [c["name"] for c in last.tool_calls]}
+                            else:
+                                final_text = message_text(last.content)
+                        elif node == "tools":
+                            names = [m.name for m in messages if isinstance(m, ToolMessage)]
+                            yield {"type": "tool_end", "tools": names}
+        except GraphRecursionError:
+            final_text = LOOP_LIMIT_MESSAGE
+    yield {"type": "done", "content": final_text}

@@ -1,197 +1,162 @@
 import { create } from 'zustand';
 import { useAppStore } from './useAppStore';
+import type { Chat, ChatMessage } from '../lib/types';
 
 const CHATS_STORAGE_KEY = 'pluto_agent_chats_v1';
 const ACTIVE_CHAT_ID_KEY = 'pluto_agent_active_chat_id_v1';
+const NEW_CHAT_TITLE = 'New Conversation';
+// Keep localStorage bounded (browsers cap it around 5 MB per origin)
+const MAX_STORED_CHATS = 50;
+
+const DEFAULT_SYSTEM_PROMPT =
+  'You are an advanced Orchestrator Agent. You have dynamic access to sub-agents (RAG, Gmail) to retrieve knowledge and execute tasks. Be direct, helpful, and concise.';
+
+const WELCOME: ChatMessage = {
+  role: 'assistant',
+  content:
+    "Hello! I am the Pluto Agent Orchestrator. Switch to 'Agent Mode' to let me call RAG knowledge search and Gmail tools dynamically to solve your queries.",
+  model: 'system',
+  tokens: 28,
+  latency: 0.05,
+};
 
 const getStorageKeys = () => {
+  // Scope by account so users sharing a browser never see each other's chats. (Keyed by
+  // email rather than ID to stay compatible with chats saved by earlier versions.)
   const user = useAppStore.getState().user;
-  const emailSuffix = user?.email ? `_${user.email.trim().toLowerCase()}` : '';
-  return {
-    chatsKey: `${CHATS_STORAGE_KEY}${emailSuffix}`,
-    activeChatIdKey: `${ACTIVE_CHAT_ID_KEY}${emailSuffix}`
-  };
+  const suffix = user?.email ? `_${user.email.trim().toLowerCase()}` : '';
+  return { chatsKey: `${CHATS_STORAGE_KEY}${suffix}`, activeChatIdKey: `${ACTIVE_CHAT_ID_KEY}${suffix}` };
 };
 
-const generateId = () => {
-  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-};
+const generateId = () => crypto.randomUUID();
 
-const DEFAULT_SYSTEM_PROMPT = 'You are an advanced Orchestrator Agent. You have dynamic access to sub-agents (RAG, Gmail) to retrieve knowledge and execute tasks. Be direct, helpful, and concise.';
+const newChat = (systemPrompt = DEFAULT_SYSTEM_PROMPT): Chat => ({
+  id: generateId(),
+  title: NEW_CHAT_TITLE,
+  messages: [WELCOME],
+  systemPrompt,
+  timestamp: Date.now(),
+});
 
-const saveToStorage = (chats, activeChatId) => {
+const saveToStorage = (chats: Chat[], activeChatId: string) => {
   const { chatsKey, activeChatIdKey } = getStorageKeys();
-  localStorage.setItem(chatsKey, JSON.stringify(chats));
-  localStorage.setItem(activeChatIdKey, activeChatId);
+  try {
+    // Never persist half-streamed messages
+    const persistable = chats.slice(0, MAX_STORED_CHATS).map((c) => ({
+      ...c,
+      messages: c.messages.map(({ streaming, ...m }) => m),
+    }));
+    localStorage.setItem(chatsKey, JSON.stringify(persistable));
+    localStorage.setItem(activeChatIdKey, activeChatId);
+  } catch (e) {
+    console.warn('Could not persist chats:', e);
+  }
 };
 
-export const useChatStore = create((set, get) => ({
-  chats: [],
-  activeChatId: '',
+interface ChatState {
+  chats: Chat[];
+  activeChatId: string;
+  initialize: () => void;
+  createNewChat: (systemPrompt?: string) => string;
+  setActiveChatId: (id: string) => void;
+  addMessageToActiveChat: (message: ChatMessage) => void;
+  /** Patch the last message of the active chat (used while streaming). */
+  updateLastMessage: (patch: Partial<ChatMessage> | ((m: ChatMessage) => Partial<ChatMessage>), persist?: boolean) => void;
+  deleteChat: (id: string) => void;
+  updateActiveSystemPrompt: (prompt: string) => void;
+}
 
-  initialize: () => {
-    try {
-      const user = useAppStore.getState().user;
-      if (!user) {
+export const useChatStore = create<ChatState>((set, get) => {
+  const updateActive = (fn: (chat: Chat) => Chat, persist = true) => {
+    const { chats, activeChatId } = get();
+    const updated = chats.map((c) => (c.id === activeChatId ? fn(c) : c));
+    set({ chats: updated });
+    if (persist) saveToStorage(updated, activeChatId);
+  };
+
+  return {
+    chats: [],
+    activeChatId: '',
+
+    initialize: () => {
+      if (!useAppStore.getState().user) {
         set({ chats: [], activeChatId: '' });
         return;
       }
-
       const { chatsKey, activeChatIdKey } = getStorageKeys();
-      const storedChats = localStorage.getItem(chatsKey);
-      const storedActiveId = localStorage.getItem(activeChatIdKey);
-      
-      let chats = storedChats ? JSON.parse(storedChats) : [];
-      let activeChatId = storedActiveId || '';
-
-      // Check if activeChatId is valid and exists in chats
-      const exists = chats.some(chat => chat.id === activeChatId);
-      if (!exists && chats.length > 0) {
-        activeChatId = chats[0].id;
+      let chats: Chat[] = [];
+      try {
+        chats = JSON.parse(localStorage.getItem(chatsKey) || '[]');
+      } catch {
+        chats = [];
       }
-
+      let activeChatId = localStorage.getItem(activeChatIdKey) || '';
+      if (!chats.some((c) => c.id === activeChatId) && chats.length > 0) activeChatId = chats[0].id;
       if (chats.length === 0) {
-        // Create initial default chat
-        const defaultChat = {
-          id: generateId(),
-          title: 'New Conversation',
-          messages: [
-            {
-              role: 'assistant',
-            content: "Hello! I am the Pluto Agent Orchestrator. Switch to 'Agent Mode' to let me call RAG knowledge search and Gmail tools dynamically to solve your queries.",
-              model: 'system',
-              tokens: 28,
-              latency: 0.05
-            }
-          ],
-          systemPrompt: DEFAULT_SYSTEM_PROMPT,
-          timestamp: Date.now()
-        };
-        chats = [defaultChat];
-        activeChatId = defaultChat.id;
+        const fresh = newChat();
+        chats = [fresh];
+        activeChatId = fresh.id;
         saveToStorage(chats, activeChatId);
       }
-
       set({ chats, activeChatId });
-    } catch (e) {
-      console.error('Failed to load chats from storage:', e);
-    }
-  },
+    },
 
-  createNewChat: (systemPrompt = DEFAULT_SYSTEM_PROMPT) => {
-    const newChat = {
-      id: generateId(),
-      title: 'New Conversation',
-      messages: [
-        {
-          role: 'assistant',
-          content: "Hello! I am the Pluto Agent Orchestrator. Switch to 'Agent Mode' to let me call RAG knowledge search and Gmail tools dynamically to solve your queries.",
-          model: 'system',
-          tokens: 28,
-          latency: 0.05
-        }
-      ],
-      systemPrompt,
-      timestamp: Date.now()
-    };
+    createNewChat: (systemPrompt = DEFAULT_SYSTEM_PROMPT) => {
+      const chat = newChat(systemPrompt);
+      const chats = [chat, ...get().chats];
+      set({ chats, activeChatId: chat.id });
+      saveToStorage(chats, chat.id);
+      return chat.id;
+    },
 
-    const updatedChats = [newChat, ...get().chats];
-    set({ chats: updatedChats, activeChatId: newChat.id });
-    saveToStorage(updatedChats, newChat.id);
-    return newChat.id;
-  },
-
-  setActiveChatId: (id) => {
-    set({ activeChatId: id });
-    const { activeChatIdKey } = getStorageKeys();
-    localStorage.setItem(activeChatIdKey, id);
-  },
-
-  addMessageToActiveChat: (message) => {
-    const { chats, activeChatId } = get();
-    const updatedChats = chats.map(chat => {
-      if (chat.id === activeChatId) {
-        const newMessages = [...chat.messages, message];
-        let newTitle = chat.title;
-        
-        // If this is the first user message, generate a title from it
-        if (chat.title === 'New Conversation' && message.role === 'user') {
-          newTitle = message.content.length > 28 
-            ? message.content.substring(0, 25) + '...' 
-            : message.content;
-        }
-
-        return {
-          ...chat,
-          messages: newMessages,
-          title: newTitle,
-          timestamp: Date.now()
-        };
+    setActiveChatId: (id) => {
+      set({ activeChatId: id });
+      try {
+        localStorage.setItem(getStorageKeys().activeChatIdKey, id);
+      } catch {
+        /* storage unavailable */
       }
-      return chat;
-    });
+    },
 
-    set({ chats: updatedChats });
-    saveToStorage(updatedChats, activeChatId);
-  },
+    addMessageToActiveChat: (message) =>
+      updateActive((chat) => ({
+        ...chat,
+        messages: [...chat.messages, message],
+        // Title the conversation from its first user message
+        title:
+          chat.title === NEW_CHAT_TITLE && message.role === 'user'
+            ? message.content.length > 28 ? `${message.content.substring(0, 25)}...` : message.content
+            : chat.title,
+        timestamp: Date.now(),
+      })),
 
-  deleteChat: (id) => {
-    const { chats, activeChatId } = get();
-    const filteredChats = chats.filter(chat => chat.id !== id);
-    let newActiveId = activeChatId;
+    updateLastMessage: (patch, persist = true) =>
+      updateActive((chat) => {
+        if (chat.messages.length === 0) return chat;
+        const messages = [...chat.messages];
+        const last = messages[messages.length - 1];
+        messages[messages.length - 1] = { ...last, ...(typeof patch === 'function' ? patch(last) : patch) };
+        return { ...chat, messages };
+      }, persist),
 
-    if (filteredChats.length === 0) {
-      // If no chats left, create a fresh one
-      const freshChat = {
-        id: generateId(),
-        title: 'New Conversation',
-        messages: [
-          {
-            role: 'assistant',
-            content: "Hello! I am the Pluto Agent Orchestrator. Switch to 'Agent Mode' to let me call RAG knowledge search and Gmail tools dynamically to solve your queries.",
-            model: 'system',
-            tokens: 28,
-            latency: 0.05
-          }
-        ],
-        systemPrompt: DEFAULT_SYSTEM_PROMPT,
-        timestamp: Date.now()
-      };
-      const chatsList = [freshChat];
-      set({ chats: chatsList, activeChatId: freshChat.id });
-      saveToStorage(chatsList, freshChat.id);
-    } else {
-      if (activeChatId === id) {
-        // If we deleted the active chat, switch to the most recent remaining one
-        newActiveId = filteredChats[0].id;
-      }
-      set({ chats: filteredChats, activeChatId: newActiveId });
-      saveToStorage(filteredChats, newActiveId);
-    }
-  },
+    deleteChat: (id) => {
+      const { chats, activeChatId } = get();
+      let remaining = chats.filter((c) => c.id !== id);
+      if (remaining.length === 0) remaining = [newChat()];
+      const nextActive = activeChatId === id || remaining.length === 1 ? remaining[0].id : activeChatId;
+      set({ chats: remaining, activeChatId: nextActive });
+      saveToStorage(remaining, nextActive);
+    },
 
-  updateActiveSystemPrompt: (prompt) => {
-    const { chats, activeChatId } = get();
-    const updatedChats = chats.map(chat => {
-      if (chat.id === activeChatId) {
-        return {
-          ...chat,
-          systemPrompt: prompt
-        };
-      }
-      return chat;
-    });
-    set({ chats: updatedChats });
-    saveToStorage(updatedChats, activeChatId);
-  }
-}));
+    updateActiveSystemPrompt: (prompt) => updateActive((chat) => ({ ...chat, systemPrompt: prompt })),
+  };
+});
 
-// Subscribe to user changes to dynamically reload user's chats
+// Reload chats whenever the signed-in user changes
 let lastUserEmail = useAppStore.getState().user?.email;
 useAppStore.subscribe((state) => {
-  const currentUserEmail = state.user?.email;
-  if (currentUserEmail !== lastUserEmail) {
-    lastUserEmail = currentUserEmail;
+  if (state.user?.email !== lastUserEmail) {
+    lastUserEmail = state.user?.email;
     useChatStore.getState().initialize();
   }
 });

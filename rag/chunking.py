@@ -1,74 +1,58 @@
+import logging
 import os
 import tempfile
-import logging
+from datetime import datetime, timezone
+
+from langchain_community.document_loaders import Docx2txtLoader, PyPDFLoader, TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader
 
 logger = logging.getLogger(__name__)
 
-
-async def save_upload_file(upload_file):
-    suffix = os.path.splitext(upload_file.filename or "")[1].lower()
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp:
-        contents = await upload_file.read()
-        temp.write(contents)
-        temp_path = temp.name
-    return temp_path
+TEXT_EXTENSIONS = {".txt", ".md", ".csv", ".json", ".log"}
 
 
 def load_document(file_path: str, original_filename: str = ""):
     ext = os.path.splitext(file_path)[1].lower()
-    docs = []
-    try:
-        if ext == ".pdf":
-            loader = PyPDFLoader(file_path=file_path)
-            docs = loader.load()
-        elif ext in [".txt", ".md", ".csv", ".json", ".log"]:
-            try:
-                loader = TextLoader(file_path=file_path, encoding="utf-8")
-                docs = loader.load()
-            except UnicodeDecodeError:
-                loader = TextLoader(file_path=file_path, encoding="latin-1")
-                docs = loader.load()
-        elif ext == ".docx":
-            loader = Docx2txtLoader(file_path=file_path)
-            docs = loader.load()
-        else:
-            try:
-                loader = TextLoader(file_path=file_path, encoding="utf-8")
-                docs = loader.load()
-            except Exception:
-                raise ValueError(
-                    f"Unsupported file format '{ext}'. Supported formats are: PDF, TXT, MD, DOCX, CSV, JSON."
-                )
+    if ext == ".pdf":
+        docs = PyPDFLoader(file_path=file_path).load()
+    elif ext == ".docx":
+        docs = Docx2txtLoader(file_path=file_path).load()
+    elif ext in TEXT_EXTENSIONS:
+        try:
+            docs = TextLoader(file_path=file_path, encoding="utf-8").load()
+        except Exception:
+            docs = TextLoader(file_path=file_path, encoding="latin-1").load()
+    else:
+        raise ValueError(f"Unsupported file format '{ext}'.")
 
-        # Set clean user-facing document filename in metadata
-        display_name = original_filename or os.path.basename(file_path)
-        for doc in docs:
-            doc.metadata["source"] = display_name
-            doc.metadata["filename"] = display_name
-
-        return docs
-    except Exception as e:
-        logger.error(f"Error loading document '{file_path}': {e}", exc_info=True)
-        raise
+    display_name = original_filename or os.path.basename(file_path)
+    for doc in docs:
+        doc.metadata["source"] = display_name
+        doc.metadata["filename"] = display_name
+    return docs
 
 
 def chunking(docs):
     splitter = RecursiveCharacterTextSplitter(
         chunk_overlap=200,
         chunk_size=1000,
-        separators=["\n\n", "\n", ". ", " ", ""]
+        separators=["\n\n", "\n", ". ", " ", ""],
     )
-    return splitter.split_documents(docs)
+    chunks = splitter.split_documents(docs)
+    ingested_at = datetime.now(timezone.utc).isoformat()
+    for i, chunk in enumerate(chunks):
+        chunk.metadata["chunk_index"] = i
+        chunk.metadata["ingested_at"] = ingested_at
+    return chunks
 
 
-async def process_document(upload_file):
-    temp_path = await save_upload_file(upload_file)
+def process_document(contents: bytes, filename: str):
+    """Parses raw upload bytes into chunks. Blocking -- call from a worker thread."""
+    suffix = os.path.splitext(filename)[1].lower()
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp:
+        temp.write(contents)
+        temp_path = temp.name
     try:
-        docs = load_document(temp_path, original_filename=upload_file.filename)
-        chunks = chunking(docs)
-        return chunks
+        return chunking(load_document(temp_path, original_filename=filename))
     finally:
-        if os.path.exists(temp_path):
-            os.unlink(temp_path)
+        os.unlink(temp_path)

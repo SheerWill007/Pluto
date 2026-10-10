@@ -1,6 +1,35 @@
 import { create } from 'zustand';
+import type { NodeState } from '../lib/types';
 
-export const useAgentStore = create((set, get) => ({
+export type Layout = 'sequential' | 'parallel' | 'graph' | 'hierarchy';
+type Position = [number, number, number];
+
+export interface HoveredNode {
+  id: string;
+  label: string;
+  status: string;
+  latency: number;
+  lastAction: string;
+}
+
+interface AgentState {
+  agentStates: Record<string, NodeState>;
+  activeLayout: Layout;
+  activeNodes: string[];
+  hoveredNode: HoveredNode | null;
+  customPositions: Record<string, Position>;
+  isDraggingNode: boolean;
+  setAgentStates: (states: Record<string, NodeState>) => void;
+  setActiveLayout: (layout: Layout) => void;
+  setNodeActive: (nodeId: string, isActive: boolean) => void;
+  clearActiveNodes: () => void;
+  setHoveredNode: (node: HoveredNode | null) => void;
+  updateNodePosition: (nodeId: string, position: Position) => void;
+  setIsDraggingNode: (isDraggingNode: boolean) => void;
+  resetCustomPositions: () => void;
+}
+
+export const useAgentStore = create<AgentState>((set) => ({
   agentStates: {
     orchestrator: { status: 'idle', latency: 0, last_action: 'Awaiting prompt' },
     rag_agent: { status: 'idle', latency: 0, last_action: 'Ready' },

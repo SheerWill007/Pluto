@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
+import type { Provider } from '../../lib/types';
 import { useAgentStore } from '../../store/useAgentStore';
 import { useThemeStore } from '../../store/useThemeStore';
 import { Key, Eye, EyeOff, Activity, ChevronDown, X, Sun, Moon } from 'lucide-react';
@@ -89,7 +90,7 @@ export const Topbar = ({ showTopology, setShowTopology }) => {
           <div className="relative flex items-center">
             <select
               value={activeProvider}
-              onChange={(e) => setActiveProvider(e.target.value)}
+              onChange={(e) => setActiveProvider(e.target.value as Provider)}
               className="bg-white/40 dark:bg-stone-800/40 border border-white/50 dark:border-stone-700 text-stone-700 dark:text-stone-200 text-xs rounded-xl pl-3 pr-8 py-1.5 focus:outline-none focus:border-beige-400 cursor-pointer font-sans appearance-none backdrop-blur-md"
             >
               <option value="openai" className="bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200">OpenAI</option>

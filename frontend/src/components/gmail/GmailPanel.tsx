@@ -1,149 +1,130 @@
-import React, { useState, useEffect } from 'react';
-import { useAppStore } from '../../store/useAppStore';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useAppStore, llmFields } from '../../store/useAppStore';
 import { useAgentStore } from '../../store/useAgentStore';
 import EmailList from './EmailList';
 import SummaryCard from './SummaryCard';
-import { API_URL } from '../../lib/api';
+import { apiFetch, errorMessage } from '../../lib/api';
 import GlassCard from '../ui/GlassCard';
-import { Mail, Sparkles, LogIn, RefreshCw, Check, LogOut } from 'lucide-react';
+import { Mail, LogIn, RefreshCw, LogOut } from 'lucide-react';
+
+interface Email {
+  id: string;
+  subject: string;
+  sender: string;
+  date: string;
+  snippet: string;
+  body?: string;
+}
+
+const CONNECT_POLL_MS = 3000;
+const CONNECT_TIMEOUT_MS = 120_000;
+const SUMMARY_TIMEOUT_MS = 120_000;
+
+/** Delays a fast-changing value (e.g. a search box) so we don't refetch on every keystroke. */
+function useDebounced<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(t);
+  }, [value, delayMs]);
+  return debounced;
+}
 
 export const GmailPanel = () => {
-  const { apiKey, activeProvider, modelName, user } = useAppStore();
+  const user = useAppStore((s) => s.user);
   const { setNodeActive, clearActiveNodes } = useAgentStore();
+  const isGuest = user?.auth_provider === 'guest';
 
   const [connected, setConnected] = useState(false);
-  const [emails, setEmails] = useState([]);
-  const [selectedIds, setSelectedIds] = useState([]);
-  
-  const [activeEmail, setActiveEmail] = useState(null);
+  const [emails, setEmails] = useState<Email[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [activeEmail, setActiveEmail] = useState<Email | null>(null);
   const [summary, setSummary] = useState('');
-  
+  const [error, setError] = useState('');
+
   const [isLoading, setIsLoading] = useState(false);
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
 
   const [labelFilter, setLabelFilter] = useState('INBOX');
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounced(searchQuery, 400);
 
-  const checkGmailStatus = async () => {
-    if (!user?.token) return false;
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const stopPolling = () => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = null;
+  };
+  useEffect(() => stopPolling, []);
+
+  const checkGmailStatus = useCallback(async () => {
+    if (!user?.token || isGuest) return false;
     try {
-      const response = await fetch(`${API_URL}/api/v1/gmail/status`, {
-        headers: {
-          'Authorization': `Bearer ${user?.token}`
-        }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        const isConn = !!data.connected;
-        setConnected(isConn);
-        return isConn;
-      }
-      setConnected(false);
-      return false;
-    } catch (err) {
-      console.error('Error checking Gmail status:', err);
+      const data = await apiFetch<{ connected: boolean }>('/gmail/status');
+      setConnected(!!data.connected);
+      return !!data.connected;
+    } catch {
       setConnected(false);
       return false;
     }
-  };
+  }, [user?.token, isGuest]);
 
-  const fetchEmailsList = async () => {
-    if (!user?.token) return;
+  const fetchEmailsList = useCallback(async () => {
+    if (!user?.token || isGuest) return;
     setIsLoading(true);
     setNodeActive('gmail_agent', true);
-
     try {
-      // Build query string params
-      let url = `${API_URL}/api/v1/gmail/list?max_results=12&label=${labelFilter}`;
-      if (searchQuery.trim()) {
-        url += `&q=${encodeURIComponent(searchQuery.trim())}`;
-      }
-
-      const response = await fetch(url, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user?.token}`
-        }
+      const data = await apiFetch<Email[]>('/gmail/list', {
+        query: { max_results: 12, label: labelFilter, q: debouncedSearch.trim() || undefined },
       });
-      if (response.ok) {
-        const data = await response.json();
-        if (Array.isArray(data)) {
-          setEmails(data);
-        } else {
-          console.warn('Gmail list returned non-array:', data);
-        }
-      }
-    } catch (error) {
-      console.warn('Error fetching emails list:', error);
+      setEmails(Array.isArray(data) ? data : []);
+      setError('');
+    } catch (err) {
+      setError(errorMessage(err, 'Could not load emails.'));
     } finally {
       setIsLoading(false);
-      setTimeout(() => {
-        clearActiveNodes();
-      }, 1500);
+      setTimeout(() => clearActiveNodes(), 1500);
     }
-  };
+  }, [user?.token, isGuest, labelFilter, debouncedSearch, setNodeActive, clearActiveNodes]);
 
-  // Check Gmail connection status on mount and load emails if connected
   useEffect(() => {
-    const init = async () => {
-      const isConn = await checkGmailStatus();
-      if (isConn) {
-        fetchEmailsList();
-      }
-    };
-    init();
-  }, [labelFilter, searchQuery, user?.token]);
+    (async () => {
+      if (await checkGmailStatus()) fetchEmailsList();
+    })();
+  }, [checkGmailStatus, fetchEmailsList]);
 
   const handleConnect = async () => {
     setIsLoading(true);
+    setError('');
     setNodeActive('gmail_agent', true);
-
     try {
-      const response = await fetch(`${API_URL}/api/v1/gmail/connect`, {
-        headers: {
-          'Authorization': `Bearer ${user?.token}`
+      const data = await apiFetch<{ auth_url: string }>('/gmail/connect');
+      window.open(data.auth_url, '_blank', 'noopener');
+      setIsConnecting(true);
+
+      // Poll until the OAuth callback has stored the token, or give up after a while
+      const started = Date.now();
+      stopPolling();
+      pollRef.current = setInterval(async () => {
+        if (await checkGmailStatus()) {
+          stopPolling();
+          setIsConnecting(false);
+          fetchEmailsList();
+        } else if (Date.now() - started > CONNECT_TIMEOUT_MS) {
+          stopPolling();
         }
-      });
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.detail || 'Failed to initiate Gmail connection.');
-      }
-
-      const data = await response.json();
-      if (data.auth_url) {
-        window.open(data.auth_url, '_blank');
-        setIsConnecting(true);
-
-        // Automatically poll /api/v1/gmail/status every 3 seconds for up to 30 seconds
-        let elapsed = 0;
-        const pollInterval = setInterval(async () => {
-          elapsed += 3;
-          const isConn = await checkGmailStatus();
-          if (isConn) {
-            clearInterval(pollInterval);
-            setIsConnecting(false);
-            fetchEmailsList();
-          } else if (elapsed >= 30) {
-            clearInterval(pollInterval);
-            setIsConnecting(false);
-          }
-        }, 3000);
-      }
-    } catch (error) {
-      alert(`Gmail connection error: ${error.message}`);
+      }, CONNECT_POLL_MS);
+    } catch (err) {
+      setError(errorMessage(err, 'Failed to start the Gmail connection.'));
     } finally {
       setIsLoading(false);
-      setTimeout(() => {
-        clearActiveNodes();
-      }, 1000);
+      setTimeout(() => clearActiveNodes(), 1000);
     }
   };
 
   const handleManualRefreshAfterConnect = async () => {
-    const isConn = await checkGmailStatus();
-    if (isConn) {
+    if (await checkGmailStatus()) {
+      stopPolling();
       setIsConnecting(false);
       fetchEmailsList();
     }
@@ -151,113 +132,61 @@ export const GmailPanel = () => {
 
   const handleDisconnect = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/v1/gmail/disconnect`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user?.token}`
-        }
-      });
-      if (response.ok) {
-        setConnected(false);
-        setEmails([]);
-        setActiveEmail(null);
-        setSummary('');
-      } else {
-        const errData = await response.json().catch(() => ({}));
-        alert(`Failed to disconnect: ${errData.detail || 'Unknown error'}`);
-      }
+      await apiFetch('/gmail/disconnect', { method: 'POST' });
+      setConnected(false);
+      setEmails([]);
+      setActiveEmail(null);
+      setSummary('');
     } catch (err) {
-      console.error('Error disconnecting Gmail:', err);
-      alert(`Failed to disconnect: ${err.message}`);
+      setError(`Failed to disconnect: ${errorMessage(err)}`);
     }
   };
 
-  // Summarize single email
-  const handleSummarizeSingle = async (msgId) => {
+  const summarize = async (emailIds: string[]) => {
     setIsSummarizing(true);
     setNodeActive('gmail_agent', true);
     setNodeActive('orchestrator', true);
     setSummary('');
-
     try {
-      const response = await fetch(`${API_URL}/api/v1/gmail/summarize`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user?.token}`
-        },
-        body: JSON.stringify({
-          email_ids: [msgId],
-          provider: activeProvider,
-          model: modelName,
-          api_key: (apiKey && apiKey.trim()) ? apiKey.trim() : null
-        })
+      const data = await apiFetch<{ summary: string }>('/gmail/summarize', {
+        json: { email_ids: emailIds, ...llmFields() },
+        timeoutMs: SUMMARY_TIMEOUT_MS,
       });
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.detail || 'Summarize query failed.');
-      }
-      const data = await response.json();
       setSummary(data.summary);
-    } catch (error) {
-      console.error(error);
-      setSummary(`Summary failed: ${error.message}`);
+    } catch (err) {
+      setSummary(`Summary failed: ${errorMessage(err)}`);
     } finally {
       setIsSummarizing(false);
-      setTimeout(() => {
-        clearActiveNodes();
-      }, 1500);
+      setTimeout(() => clearActiveNodes(), 1500);
     }
   };
 
-  // Bulk summarize multiple selected checkmarked emails
+  const handleSummarizeSingle = (msgId: string) => summarize([msgId]);
+
   const handleBulkSummarize = async () => {
     if (selectedIds.length === 0) return;
-    
-    setIsSummarizing(true);
-    setNodeActive('gmail_agent', true);
-    setNodeActive('orchestrator', true);
-    setActiveEmail(null); // Clear selected single email to show general bulk summary
-    setSummary('');
-
-    try {
-      const response = await fetch(`${API_URL}/api/v1/gmail/summarize`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user?.token}`
-        },
-        body: JSON.stringify({
-          email_ids: selectedIds,
-          provider: activeProvider,
-          model: modelName,
-          api_key: (apiKey && apiKey.trim()) ? apiKey.trim() : null
-        })
-      });
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.detail || 'Bulk summarize request failed.');
-      }
-      const data = await response.json();
-      setSummary(data.summary);
-    } catch (error) {
-      console.error(error);
-      setSummary(`Bulk summary failed: ${error.message}`);
-    } finally {
-      setIsSummarizing(false);
-      setTimeout(() => {
-        clearActiveNodes();
-      }, 1500);
-    }
+    setActiveEmail(null); // show the combined digest instead of a single email
+    await summarize(selectedIds);
   };
 
-  const handleEmailClick = (email) => {
+  const handleEmailClick = (email: Email) => {
     setActiveEmail(email);
-    setSummary(''); // Clear previous summary so they can generate for this new one
+    setSummary('');
   };
+
+  if (isGuest) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-6 h-full">
+        <GlassCard className="max-w-md w-full p-8! text-center flex flex-col items-center rounded-3xl">
+          <Mail className="h-10 w-10 text-beige-600 dark:text-beige-400 mb-4" />
+          <h2 className="text-xl font-bold text-stone-900 dark:text-stone-100 mb-2">Gmail requires an account</h2>
+          <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed">
+            Guest sessions are temporary, so they can&apos;t be linked to a mailbox. Sign in or create an account to connect Gmail.
+          </p>
+        </GlassCard>
+      </div>
+    );
+  }
 
   // If not authenticated, show OAuth flow landing page
   if (!connected) {
@@ -288,6 +217,10 @@ export const GmailPanel = () => {
             )}
             <span>Connect Gmail Account</span>
           </button>
+
+          {error && (
+            <p role="alert" className="mt-4 w-full text-xs text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded-xl px-3 py-2">{error}</p>
+          )}
 
           {isConnecting && (
             <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl text-xs text-amber-800 dark:text-amber-200 flex flex-col gap-2 w-full text-center">
@@ -337,6 +270,10 @@ export const GmailPanel = () => {
               </button>
             </div>
           </div>
+
+          {error && (
+            <p role="alert" className="mb-3 shrink-0 text-xs text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded-xl px-3 py-2">{error}</p>
+          )}
 
           <EmailList 
             emails={emails}

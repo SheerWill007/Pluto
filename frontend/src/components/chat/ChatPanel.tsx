@@ -1,26 +1,27 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useAppStore } from '../../store/useAppStore';
+import { useAppStore, llmFields } from '../../store/useAppStore';
 import { useAgentStore } from '../../store/useAgentStore';
-import { API_URL } from '../../lib/api';
+import { streamSSE, errorMessage, type SSEEvent } from '../../lib/api';
 import { useChatStore } from '../../store/useChatStore';
 import MessageBubble from './MessageBubble';
 import GlassCard from '../ui/GlassCard';
 import { Send, Terminal, Sparkles, ChevronDown, ChevronUp, Radio, Plus, Trash2, MessageSquare } from 'lucide-react';
 import { gsap } from 'gsap';
+import { clickableProps } from '../../lib/a11y';
+
+// Which topology nodes light up when the orchestrator calls each tool
+const TOOL_NODES: Record<string, string[]> = {
+  search_document: ['rag_agent', 'chromadb'],
+  gmail_tool: ['gmail_agent'],
+  code_tool: ['code_generator', 'code_critic'],
+  web_search: [],
+};
+
+const estimateTokens = (text: string) => Math.round(text.length / 4);
 
 export const ChatPanel = () => {
-  const {
-    activeProvider,
-    modelName,
-    apiKey,
-    ollamaBaseUrl,
-    setOllamaBaseUrl,
-    agentMode,
-    systemPrompt
-  } = useAppStore();
-
+  const { activeProvider, modelName, ollamaBaseUrl, setOllamaBaseUrl, agentMode, systemPrompt } = useAppStore();
   const { setNodeActive, clearActiveNodes } = useAgentStore();
-
   const {
     chats,
     activeChatId,
@@ -28,33 +29,32 @@ export const ChatPanel = () => {
     createNewChat,
     setActiveChatId,
     addMessageToActiveChat,
+    updateLastMessage,
     deleteChat,
-    updateActiveSystemPrompt
+    updateActiveSystemPrompt,
   } = useChatStore();
 
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showSystemPrompt, setShowSystemPrompt] = useState(false);
 
-  const threadEndRef = useRef(null);
-  const sendBtnRef = useRef(null);
-  const activeControllerRef = useRef(null);
+  const threadEndRef = useRef<HTMLDivElement>(null);
+  const sendBtnRef = useRef<HTMLButtonElement>(null);
+  const activeControllerRef = useRef<AbortController | null>(null);
 
   const handleCancel = () => {
-    if (activeControllerRef.current) {
-      activeControllerRef.current.abort();
-      activeControllerRef.current = null;
-    }
-    setIsLoading(false);
-    clearActiveNodes();
+    activeControllerRef.current?.abort();
+    activeControllerRef.current = null;
   };
 
-  // Load chats on component mount
   useEffect(() => {
     initialize();
-  }, []);
+  }, [initialize]);
 
-  const activeChat = chats.find(c => c.id === activeChatId) || chats[0];
+  // Abort any in-flight request when the panel unmounts
+  useEffect(() => () => activeControllerRef.current?.abort(), []);
+
+  const activeChat = chats.find((c) => c.id === activeChatId) || chats[0];
   const messages = activeChat ? activeChat.messages : [];
   const activeSystemPrompt = activeChat ? activeChat.systemPrompt : systemPrompt;
 
@@ -62,7 +62,57 @@ export const ChatPanel = () => {
     threadEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
-  const handleSend = async (e) => {
+  const sendToOllama = async (userMessage: string, signal: AbortSignal) => {
+    const response = await fetch(`${ollamaBaseUrl}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal,
+      body: JSON.stringify({
+        model: modelName,
+        messages: [
+          ...(activeSystemPrompt ? [{ role: 'system', content: activeSystemPrompt }] : []),
+          { role: 'user', content: userMessage },
+        ],
+        stream: false,
+      }),
+    });
+    if (!response.ok) throw new Error('Ollama connection failed.');
+    const data = await response.json();
+    return (data.message?.content as string) || 'Empty response.';
+  };
+
+  const streamFromBackend = async (userMessage: string, signal: AbortSignal) => {
+    let final = '';
+    let failure: string | null = null;
+    const onEvent = (event: SSEEvent) => {
+      switch (event.type) {
+        case 'token':
+          updateLastMessage((m) => ({ content: m.content + String(event.content ?? '') }), false);
+          break;
+        case 'tool_start':
+          (event.tools as string[]).forEach((tool) => (TOOL_NODES[tool] || []).forEach((n) => setNodeActive(n, true)));
+          updateLastMessage((m) => ({ tools: [...new Set([...(m.tools || []), ...(event.tools as string[])])] }), false);
+          break;
+        case 'done':
+          final = String(event.content ?? '');
+          break;
+        case 'error':
+          failure = String(event.detail ?? 'The agent failed to respond.');
+          break;
+      }
+    };
+    await streamSSE('/chat/stream', {
+      message: userMessage,
+      session_id: activeChat.id,
+      agent_mode: agentMode,
+      system_prompt: activeSystemPrompt || null,
+      ...llmFields(),
+    }, onEvent, { signal });
+    if (failure) throw new Error(failure);
+    return final;
+  };
+
+  const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading || !activeChat) return;
 
@@ -70,123 +120,51 @@ export const ChatPanel = () => {
     setInput('');
     setIsLoading(true);
 
-    // Apply "liquid press squish" using GSAP on the send button
+    // "Liquid press squish" on the send button
     if (sendBtnRef.current) {
       gsap.timeline()
-        .to(sendBtnRef.current, { scaleX: 1.25, scaleY: 0.7, duration: 0.08, ease: "power1.out" })
-        .to(sendBtnRef.current, { scaleX: 0.9, scaleY: 1.15, duration: 0.1, ease: "power1.inOut" })
-        .to(sendBtnRef.current, { scaleX: 1.0, scaleY: 1.0, duration: 0.35, ease: "elastic.out(1, 0.4)" });
+        .to(sendBtnRef.current, { scaleX: 1.25, scaleY: 0.7, duration: 0.08, ease: 'power1.out' })
+        .to(sendBtnRef.current, { scaleX: 0.9, scaleY: 1.15, duration: 0.1, ease: 'power1.inOut' })
+        .to(sendBtnRef.current, { scaleX: 1.0, scaleY: 1.0, duration: 0.35, ease: 'elastic.out(1, 0.4)' });
     }
 
-    // Add user message to thread
-    addMessageToActiveChat({
-      role: 'user',
-      content: userMessage
-    });
+    addMessageToActiveChat({ role: 'user', content: userMessage });
+    addMessageToActiveChat({ role: 'assistant', content: '', model: modelName, streaming: true, tools: [] });
 
     setNodeActive('orchestrator', true);
-    if (agentMode) {
-      setNodeActive('openai', activeProvider === 'openai');
-      setNodeActive('anthropic', activeProvider === 'anthropic');
-      setNodeActive('google', activeProvider === 'google');
-      setNodeActive('groq', activeProvider === 'groq');
-      setNodeActive('openrouter', activeProvider === 'openrouter');
-      setNodeActive('ollama', activeProvider === 'ollama');
+    setNodeActive(activeProvider, true);
 
-      const lower = userMessage.toLowerCase();
-      if (lower.includes('gmail') || lower.includes('email') || lower.includes('inbox')) {
-        setNodeActive('gmail_agent', true);
-      }
-      if (lower.includes('rag') || lower.includes('doc') || lower.includes('knowledge') || lower.includes('pdf')) {
-        setNodeActive('rag_agent', true);
-        setNodeActive('chromadb', true);
-      }
-    }
-
+    const controller = new AbortController();
+    activeControllerRef.current = controller;
     const t0 = performance.now();
 
     try {
-      if (activeProvider === 'ollama') {
-        const response = await fetch(`${ollamaBaseUrl}/api/chat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: modelName,
-            messages: [{ role: 'user', content: userMessage }],
-            stream: false
-          })
-        });
-
-        if (!response.ok) throw new Error('Ollama connection failed.');
-        const data = await response.json();
-        const latency = ((performance.now() - t0) / 1000).toFixed(2);
-
-        addMessageToActiveChat({
-          role: 'assistant',
-          content: data.message?.content || 'Empty response.',
-          model: modelName,
-          tokens: Math.round((data.message?.content?.length || 0) / 4),
-          latency: parseFloat(latency)
-        });
-      } else {
-        const cleanApiKey = apiKey && apiKey.trim() ? apiKey.trim() : null;
-        const controller = new AbortController();
-        activeControllerRef.current = controller;
-        const timeoutId = setTimeout(() => controller.abort(), 45000);
-
-        try {
-          const response = await fetch(`${API_URL}/api/v1/chat`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            signal: controller.signal,
-            body: JSON.stringify({
-              message: userMessage,
-              session_id: activeChat.id,
-              provider: activeProvider,
-              model: modelName,
-              agent_mode: agentMode,
-              api_key: cleanApiKey
-            })
-          });
-          clearTimeout(timeoutId);
-
-          if (!response.ok) {
-            const errData = await response.json().catch(() => ({}));
-            throw new Error(errData.detail || 'Backend failed to process response.');
-          }
-          const data = await response.json();
-          const latency = ((performance.now() - t0) / 1000).toFixed(2);
-
-          addMessageToActiveChat({
-            role: 'assistant',
-            content: data.response,
-            model: modelName,
-            tokens: Math.round(data.response.length / 4),
-            latency: parseFloat(latency)
-          });
-        } catch (fetchErr) {
-          clearTimeout(timeoutId);
-          if (fetchErr.name === 'AbortError') {
-            throw new Error('Chat request timed out after 45 seconds. Please try again or click Cancel.');
-          }
-          throw fetchErr;
-        }
-      }
-    } catch (err) {
-      console.error(err);
-      addMessageToActiveChat({
-        role: 'assistant',
-        content: `Error: ${err.message}`,
-        model: 'system-error',
-        tokens: 0,
-        latency: 0
+      const content = activeProvider === 'ollama'
+        ? await sendToOllama(userMessage, controller.signal)
+        : await streamFromBackend(userMessage, controller.signal);
+      updateLastMessage((m) => {
+        const text = content || m.content || 'Empty response.';
+        return {
+          content: text,
+          streaming: false,
+          tokens: estimateTokens(text),
+          latency: parseFloat(((performance.now() - t0) / 1000).toFixed(2)),
+        };
       });
+    } catch (err) {
+      const cancelled = controller.signal.aborted;
+      updateLastMessage((m) => ({
+        // Keep whatever streamed before a cancel; replace it on a real failure
+        content: cancelled ? (m.content ? `${m.content}\n\n_(stopped)_` : '_(stopped)_') : `Error: ${errorMessage(err)}`,
+        model: cancelled ? m.model : 'system-error',
+        streaming: false,
+        tokens: estimateTokens(m.content),
+        latency: 0,
+      }));
     } finally {
       activeControllerRef.current = null;
       setIsLoading(false);
-      setTimeout(() => {
-        clearActiveNodes();
-      }, 1500);
+      setTimeout(() => clearActiveNodes(), 1500);
     }
   };
 
@@ -225,7 +203,7 @@ export const ChatPanel = () => {
             {chats.map((chat) => (
               <div
                 key={chat.id}
-                onClick={() => setActiveChatId(chat.id)}
+                {...clickableProps(() => setActiveChatId(chat.id), { selected: chat.id === activeChatId })}
                 className={`group flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200 border ${chat.id === activeChatId
                     ? 'bg-amber-500/10 dark:bg-amber-500/20 border-amber-500/20 dark:border-amber-500/30 text-amber-900 dark:text-amber-200 font-medium'
                     : 'hover:bg-white/50 dark:hover:bg-stone-800/50 text-stone-700 dark:text-stone-300 hover:text-stone-900 dark:hover:text-stone-100 border-transparent'
@@ -309,7 +287,7 @@ export const ChatPanel = () => {
             {isLoading && (
               <div className="flex items-center gap-2 text-xs text-stone-400 dark:text-stone-500 font-mono pl-2">
                 <Sparkles className="h-4 w-4 text-beige-600 dark:text-beige-400 animate-spin" />
-                <span>Agents thinking...</span>
+                <span>{messages[messages.length - 1]?.content ? 'Streaming response...' : 'Agents thinking...'}</span>
                 <button
                   type="button"
                   onClick={handleCancel}

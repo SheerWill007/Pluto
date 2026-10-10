@@ -145,14 +145,14 @@ const GlowCursor = ({
   blendMode = 'screen',
   maxDevicePixelRatio = 1.5,
   enabled = true,
-  children,
+  children = undefined,
   className = '',
-  style,
+  style = undefined,
   ...rest
 }) => {
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
-  const propsRef = useRef({});
+  const propsRef = useRef<Record<string, any>>({});
 
   propsRef.current = {
     color,
@@ -341,7 +341,7 @@ const GlowCursor = ({
 
   return (
     <div ref={containerRef} className={`glow-cursor pointer-events-none fixed inset-0 z-0${className ? ` ${className}` : ''}`} style={style} {...rest}>
-      <canvas ref={canvasRef} className="glow-cursor__canvas" style={{ mixBlendMode: blendMode }} aria-hidden="true" />
+      <canvas ref={canvasRef} className="glow-cursor__canvas" style={{ mixBlendMode: blendMode as React.CSSProperties['mixBlendMode'] }} aria-hidden="true" />
       {children && <div className="glow-cursor__content">{children}</div>}
     </div>
   );

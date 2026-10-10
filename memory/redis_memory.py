@@ -1,84 +1,72 @@
-import redis
+"""
+Short-term conversation memory (per-session chat history), stored in Redis with an
+in-memory fallback for local development.
+"""
+
 import json
 import logging
-from config.settings import settings
+import threading
+from collections import defaultdict
+
+from memory.redis_client import get_redis, mark_redis_failed
 
 logger = logging.getLogger(__name__)
 
-# In-memory fallback storage
-_memory_storage = {}
+TTL_SECONDS = 24 * 60 * 60
+# Bound history so long conversations don't grow prompts (and cost) without limit
+MAX_HISTORY_MESSAGES = 40
 
-# Try to connect to Redis, but don't crash if it fails
-try:
-    client = redis.Redis(
-        host=settings.REDIS_HOST,
-        port=settings.REDIS_PORT,
-        username=settings.REDIS_USERNAME,
-        password=settings.REDIS_PASSWORD,
-        decode_responses=True,
-        socket_connect_timeout=2
-    )
-    # Test connection
-    client.ping()
-    _redis_available = True
-    logger.info("Redis connection successful")
-except Exception as e:
-    client = None
-    _redis_available = False
-    logger.warning(f"Redis not available, using in-memory storage: {e}")
+_memory_storage: dict = defaultdict(list)
+_memory_lock = threading.Lock()
 
-TTL_seconds = 24 * 60 * 60
 
 def _session_key(session_id: str) -> str:
     return f"session:{session_id}:history"
 
+
 def save_message(session_id: str, role: str, content: str, user_id: str = None):
-    user_id = user_id or session_id
     key = _session_key(session_id)
-    message = json.dumps({"role": role, "content": content, "user_id": user_id})
-    
-    if _redis_available and client:
+    message = json.dumps({"role": role, "content": content, "user_id": user_id or session_id})
+
+    client = get_redis()
+    if client is not None:
         try:
-            client.rpush(key, message)
-            client.expire(key, TTL_seconds)
+            pipe = client.pipeline()
+            pipe.rpush(key, message)
+            pipe.ltrim(key, -MAX_HISTORY_MESSAGES, -1)
+            pipe.expire(key, TTL_SECONDS)
+            pipe.execute()
+            return
         except Exception as e:
-            logger.error(f"Redis save failed, using memory: {e}")
-            if key not in _memory_storage:
-                _memory_storage[key] = []
-            _memory_storage[key].append(message)
-    else:
-        # Use in-memory storage
-        if key not in _memory_storage:
-            _memory_storage[key] = []
+            logger.error("Redis save failed, falling back to memory: %s", e)
+            mark_redis_failed()
+
+    with _memory_lock:
         _memory_storage[key].append(message)
+        del _memory_storage[key][:-MAX_HISTORY_MESSAGES]
+
 
 def get_history(session_id: str) -> list:
     key = _session_key(session_id)
-    
-    if _redis_available and client:
+    client = get_redis()
+    if client is not None:
         try:
-            raw_message = client.lrange(key, 0, -1)
-            formatted = [json.loads(msg) for msg in raw_message]
-            return formatted
+            return [json.loads(m) for m in client.lrange(key, 0, -1)]
         except Exception as e:
-            logger.error(f"Redis get failed, using memory: {e}")
-            # Fall back to memory
-            raw_message = _memory_storage.get(key, [])
-            return [json.loads(msg) for msg in raw_message]
-    else:
-        # Use in-memory storage
-        raw_message = _memory_storage.get(key, [])
-        return [json.loads(msg) for msg in raw_message]
+            logger.error("Redis read failed, falling back to memory: %s", e)
+            mark_redis_failed()
+    with _memory_lock:
+        return [json.loads(m) for m in _memory_storage.get(key, [])]
+
 
 def clear_history(session_id: str):
     key = _session_key(session_id)
-    
-    if _redis_available and client:
+    client = get_redis()
+    if client is not None:
         try:
             client.delete(key)
         except Exception as e:
-            logger.error(f"Redis clear failed: {e}")
-    
-    # Also clear from memory
-    if key in _memory_storage:
-        del _memory_storage[key]
+            logger.error("Redis clear failed: %s", e)
+            mark_redis_failed()
+    with _memory_lock:
+        _memory_storage.pop(key, None)

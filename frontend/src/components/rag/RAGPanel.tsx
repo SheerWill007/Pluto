@@ -1,23 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/useAppStore';
+import { apiFetch, errorMessage } from '../../lib/api';
+import { DEFAULT_MODELS, type Provider } from '../../lib/types';
 import { useAgentStore } from '../../store/useAgentStore';
 import DocumentUpload from './DocumentUpload';
 import ChunkViewer from './ChunkViewer';
 import GlassCard from '../ui/GlassCard';
 import { Search, Database, Sparkles, BookOpen, Layers, ChevronDown, FileText, Trash2 } from 'lucide-react';
-import { API_URL } from '../../lib/api';
 import MarkdownFormatter from '../ui/MarkdownFormatter';
 
 export const RAGPanel = () => {
-  const { apiKey, selectedProvider, selectedModel } = useAppStore();
+  const { apiKey, activeProvider: selectedProvider, modelName: selectedModel } = useAppStore();
   const { setNodeActive, clearActiveNodes } = useAgentStore();
 
   const [query, setQuery] = useState('');
   const [topK, setTopK] = useState(4);
-  const [localProvider, setLocalProvider] = useState(selectedProvider || 'google');
-  const [localModel, setLocalModel] = useState(selectedModel || 'gemini-flash-lite-latest');
+  const [localProvider, setLocalProvider] = useState<Provider>(selectedProvider || 'google');
+  const [localModel, setLocalModel] = useState(selectedModel || DEFAULT_MODELS.google);
   
-  const [availableDocs, setAvailableDocs] = useState([]);
+  const [availableDocs, setAvailableDocs] = useState<string[]>([]);
   const [selectedSource, setSelectedSource] = useState('all');
 
   const [answer, setAnswer] = useState('');
@@ -33,13 +34,8 @@ export const RAGPanel = () => {
   // Load existing ingested documents from backend
   const fetchDocuments = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/v1/rag/documents`);
-      if (response.ok) {
-        const data = await response.json();
-        if (Array.isArray(data.documents)) {
-          setAvailableDocs(data.documents);
-        }
-      }
+      const data = await apiFetch<{ documents: string[] }>('/rag/documents');
+      if (Array.isArray(data.documents)) setAvailableDocs(data.documents);
     } catch (error) {
       console.error('Failed to fetch RAG documents:', error);
     }
@@ -70,29 +66,20 @@ export const RAGPanel = () => {
   const handleClearKB = async () => {
     if (!window.confirm('Are you sure you want to clear all documents from the knowledge base?')) return;
     try {
-      const res = await fetch(`${API_URL}/api/v1/rag/documents`, {
-        method: 'DELETE'
-      });
-      if (res.ok) {
-        setAvailableDocs([]);
-        setSelectedSource('all');
-        setChunks([]);
-        setAnswer('Knowledge base cleared successfully.');
-      }
+      await apiFetch('/rag/documents', { method: 'DELETE' });
+      setAvailableDocs([]);
+      setSelectedSource('all');
+      setChunks([]);
+      setAnswer('Knowledge base cleared successfully.');
     } catch (err) {
-      console.error('Failed to clear knowledge base:', err);
+      setAnswer(`Failed to clear knowledge base: ${errorMessage(err)}`);
     }
   };
 
   // Default models map for local override
-  const handleProviderChange = (provider) => {
+  const handleProviderChange = (provider: Provider) => {
     setLocalProvider(provider);
-    if (provider === 'google') setLocalModel('gemini-flash-lite-latest');
-    else if (provider === 'openai') setLocalModel('gpt-4o-mini');
-    else if (provider === 'anthropic') setLocalModel('claude-3-5-sonnet-20240620');
-    else if (provider === 'groq') setLocalModel('llama-3.1-8b-instant');
-    else if (provider === 'openrouter') setLocalModel('openai/gpt-4o-mini');
-    else if (provider === 'ollama') setLocalModel('llama3');
+    setLocalModel(DEFAULT_MODELS[provider] || DEFAULT_MODELS.openai);
   };
 
   const handleSearch = async (e) => {
@@ -107,9 +94,9 @@ export const RAGPanel = () => {
     setNodeActive('orchestrator', true);
 
     try {
-      const payload = {
+      const payload: Record<string, unknown> = {
         query: query.trim(),
-        top_k: parseInt(topK),
+        top_k: Number(topK),
         provider: localProvider,
         model: localModel,
         api_key: (apiKey && apiKey.trim()) ? apiKey.trim() : null
@@ -120,23 +107,13 @@ export const RAGPanel = () => {
         payload.source = selectedSource;
       }
 
-      const response = await fetch(`${API_URL}/api/v1/rag/query`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      const data = await apiFetch<{ answer: string; chunks: unknown[] }>('/rag/query', { json: payload, timeoutMs: 120_000 });
 
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.detail || 'Search request failed.');
-      }
-      const data = await response.json();
-      
       setAnswer(data.answer);
       setChunks(data.chunks || []);
     } catch (error) {
       console.error(error);
-      setAnswer(`Failed to query RAG agent. ${error.message}`);
+      setAnswer(`Failed to query RAG agent. ${errorMessage(error)}`);
       setChunks([]);
     } finally {
       setIsLoading(false);
@@ -247,7 +224,7 @@ export const RAGPanel = () => {
                 <div className="relative flex items-center">
                   <select
                     value={localProvider}
-                    onChange={(e) => handleProviderChange(e.target.value)}
+                    onChange={(e) => handleProviderChange(e.target.value as Provider)}
                     className="w-full bg-white/40 dark:bg-stone-800/40 border border-white/50 dark:border-stone-700 backdrop-blur-md text-stone-800 dark:text-stone-200 text-[11px] rounded-lg pl-2 pr-7 py-1.5 focus:outline-none focus:border-beige-400 dark:focus:border-stone-500 cursor-pointer appearance-none"
                   >
                     <option value="openai" className="bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200">OpenAI</option>
@@ -276,7 +253,7 @@ export const RAGPanel = () => {
                 <div className="relative flex items-center">
                   <select
                     value={topK}
-                    onChange={(e) => setTopK(e.target.value)}
+                    onChange={(e) => setTopK(Number(e.target.value))}
                     className="w-full bg-white/40 dark:bg-stone-800/40 border border-white/50 dark:border-stone-700 backdrop-blur-md text-stone-800 dark:text-stone-200 text-[11px] rounded-lg pl-2 pr-7 py-1.5 focus:outline-none focus:border-beige-400 dark:focus:border-stone-500 cursor-pointer appearance-none"
                   >
                     <option value={2} className="bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200">2 Chunks</option>

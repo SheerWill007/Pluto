@@ -70,3 +70,15 @@ yarn-error.log*
 # Scratch / temp
 scratch/
 from
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Runtime data (Docker volume mount point)
+data/
+
+# Local Claude Code settings
+.claude/settings.local.json

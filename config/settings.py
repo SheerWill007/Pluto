@@ -1,14 +1,41 @@
-from pydantic_settings import BaseSettings
-from typing import Optional, Dict, Any
+import secrets
 from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from pydantic_settings import BaseSettings
 
 ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
+
+APP_VERSION = "2.0.0"
 
 
 class Settings(BaseSettings):
     # App
     APP_NAME: str = "Pluto Agent"
     DEBUG: bool = False
+    # "development" | "staging" | "production" -- production enables strict startup checks
+    ENVIRONMENT: str = "development"
+
+    # Logging: "text" for humans, "json" for log aggregators (Datadog, Loki, CloudWatch...)
+    LOG_LEVEL: Optional[str] = None
+    LOG_FORMAT: str = "text"
+
+    # HTTP / CORS -- comma-separated list of allowed browser origins
+    CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
+    # Where the SPA lives; used to redirect back after the Gmail OAuth callback
+    FRONTEND_URL: str = "http://localhost:5173"
+
+    # Rate limiting (requests per minute, per client)
+    RATE_LIMIT_ENABLED: bool = True
+    RATE_LIMIT_PER_MINUTE: int = 60
+    AUTH_RATE_LIMIT_PER_MINUTE: int = 10
+
+    # Uploads
+    MAX_UPLOAD_MB: int = 20
+    ALLOWED_UPLOAD_EXTENSIONS: str = ".pdf,.txt,.md,.csv,.json,.log,.docx"
+
+    # Metrics
+    METRICS_ENABLED: bool = True
 
     # LLM - Universal multi-provider configuration
     LLM_PROVIDER: Optional[str] = None
@@ -17,7 +44,7 @@ class Settings(BaseSettings):
     LLM_BASE_URL: Optional[str] = None
     LLM_TEMPERATURE: float = 0.7
     LLM_MAX_TOKENS: int = 4096
-    
+
     # Specific provider keys (all optional, auto-detected)
     OPENAI_API_KEY: Optional[str] = None
     OPENAI_MODEL: Optional[str] = None
@@ -27,6 +54,9 @@ class Settings(BaseSettings):
     GROQ_API_KEY: Optional[str] = None
     OPENROUTER_API_KEY: Optional[str] = None
     OLLAMA_BASE_URL: Optional[str] = None
+
+    # Optional stronger model for the code critic agent (defaults to the caller's model)
+    CRITIC_MODEL: Optional[str] = None
 
     # Legacy support
     BASE_URL: Optional[str] = None
@@ -53,11 +83,11 @@ class Settings(BaseSettings):
     POSTGRES_PORT: int = 5432
     POSTGRES_DB: str = "agent_db"
     POSTGRES_USER: str = "postgres"
-    POSTGRES_PASSWORD: str = "password"
+    POSTGRES_PASSWORD: str = "password"  # noqa: S105 -- local dev default
 
     # Gmail
     GMAIL_CREDENTIALS_PATH: Optional[str] = "credentials.json"
-    GMAIL_TOKEN_PATH: Optional[str] = "./token.json"
+    GMAIL_TOKEN_PATH: Optional[str] = "./token.json"  # noqa: S105
     SCOPES: str = "https://www.googleapis.com/auth/gmail.readonly"
     GMAIL_WEB_CLIENT_ID: str = ""
     GMAIL_WEB_CLIENT_SECRET: str = ""
@@ -65,6 +95,52 @@ class Settings(BaseSettings):
 
     # Auth / JWT
     JWT_SECRET_KEY: str = ""
+    JWT_ALGORITHM: str = "HS256"
+    JWT_EXPIRE_MINUTES: int = 60 * 24 * 7
+    JWT_ISSUER: str = "pluto-agent"
+    JWT_AUDIENCE: str = "pluto-agent-api"
+    # Google OAuth client used for "Sign in with Google"; tokens for other clients are rejected
+    GOOGLE_CLIENT_ID: str = ""
+    # Only needed for the redirect (authorization code) sign-in fallback; never sent to the browser
+    GOOGLE_CLIENT_SECRET: str = ""
+    # Issue short-lived anonymous tokens from /auth/guest
+    ALLOW_GUEST_ACCESS: bool = True
+    GUEST_TOKEN_EXPIRE_MINUTES: int = 60 * 12
+
+    # Fernet key used to encrypt OAuth tokens at rest. Generate with:
+    #   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    TOKEN_ENCRYPTION_KEY: str = ""
+
+    @property
+    def is_production(self) -> bool:
+        return self.ENVIRONMENT.strip().lower() in ("production", "prod")
+
+    @property
+    def cors_origins(self) -> List[str]:
+        return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+
+    @property
+    def allowed_upload_extensions(self) -> List[str]:
+        return [e.strip().lower() for e in self.ALLOWED_UPLOAD_EXTENSIONS.split(",") if e.strip()]
+
+    def validate_for_startup(self) -> List[str]:
+        """
+        Returns a list of configuration problems. In production these are fatal;
+        in development they are logged as warnings and safe fallbacks are used.
+        """
+        problems = []
+        if not self.JWT_SECRET_KEY or len(self.JWT_SECRET_KEY) < 32:
+            problems.append("JWT_SECRET_KEY must be set to a random string of at least 32 characters.")
+        if "*" in self.cors_origins:
+            problems.append("CORS_ORIGINS must list explicit origins, not '*'.")
+        if not self.TOKEN_ENCRYPTION_KEY:
+            problems.append("TOKEN_ENCRYPTION_KEY is not set; OAuth tokens would be stored unencrypted.")
+        return problems
+
+    def ensure_jwt_secret(self) -> None:
+        """Development fallback: use an ephemeral secret so tokens are never signed with an empty key."""
+        if not self.JWT_SECRET_KEY or len(self.JWT_SECRET_KEY) < 32:
+            self.JWT_SECRET_KEY = secrets.token_urlsafe(48)
 
     def detect_llm_settings(self) -> Dict[str, Any]:
         """
@@ -126,7 +202,7 @@ class Settings(BaseSettings):
         provider_default_models = {
             "google": "gemini-flash-lite-latest",
             "openai": "gpt-4o-mini",
-            "anthropic": "claude-3-5-sonnet-20240620",
+            "anthropic": "claude-sonnet-5-5",
             "groq": "llama-3.1-8b-instant",
             "openrouter": "openai/gpt-4o-mini",
             "ollama": "llama3",
