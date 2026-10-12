@@ -23,6 +23,7 @@ wheels/
 
 # Virtual environments
 .venv/
+.venv.broken/
 venv/
 ENV/
 env.bak/
