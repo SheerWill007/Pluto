@@ -1,7 +1,9 @@
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
-from tools.web_search import web_search
+
 from llm_provider.llm_initializer import get_llm_model
+from tools.web_search import web_search
+
 
 def run_research_agent(query):
     try:
@@ -14,7 +16,7 @@ def run_research_agent(query):
             If sources or URLs are present in the results, mention them.
             If no sources are visible, do not make them up.
             Question : {question}
-            WEB_finding: {web_search}  
+            WEB_finding: {web_search}
         """)
         chain = prompt|model|StrOutputParser()
         return chain.invoke({"web_search":web_search_findings , "question":query})

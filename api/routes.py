@@ -1,51 +1,55 @@
-import logging
-import uuid
-import time
-import httpx
 import hashlib
+import logging
 import os
-import jwt
+import time
+import uuid
 from datetime import datetime, timedelta
-from typing import Optional, List
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from typing import Optional
 
-from schemas.request_models import (
-    ChatRequest, ChatResponse,
-    RAGQueryRequest, RAGQueryResponse, ChunkResponse,
-    UploadResponse, HealthResponse,
-    GmailResponse, GmailSummarizeRequest,
-    CodeGenerateRequest, CodeGenerateResponse,
-    CodeCriticRequest, CodeCriticResponse,
-    UserSignUpRequest, UserLoginRequest, GoogleAuthRequest
-)
-from config.settings import settings
-from rag.chunking import process_document
-from rag.vector_store import (
-    add_documents,
-    get_retriever,
-    delete_documents_by_source,
-    list_documents,
-    clear_collection
-)
+import httpx
+import jwt
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from google_auth_oauthlib.flow import Flow
-from memory.memory_manager import handle_message, check_and_save_fact, get_context
-from tools.gmail_tools import fetch_recent_emails, fetch_single_email
-from memory.postgres_memory import (
-    create_local_user,
-    get_user_by_email,
-    get_or_create_google_user,
-    save_gmail_token,
-    get_gmail_token,
-    delete_gmail_token
-)
+
+from agents.code_critic import run_code_critic
+from agents.code_generator import run_code_generator
+from agents.gmail_agent import run_gmail_agent
 
 # Agents
 from agents.orchestrator import run_orchestrator
 from agents.rag_agent import run_rag_agent
-from agents.gmail_agent import run_gmail_agent
-from agents.code_generator import run_code_generator
-from agents.code_critic import run_code_critic
+from config.settings import settings
+from memory.memory_manager import check_and_save_fact, get_context, handle_message
+from memory.postgres_memory import (
+    create_local_user,
+    delete_gmail_token,
+    get_gmail_token,
+    get_or_create_google_user,
+    get_user_by_email,
+    save_gmail_token,
+)
+from rag.chunking import process_document
+from rag.vector_store import add_documents, clear_collection, delete_documents_by_source, get_retriever, list_documents
+from schemas.request_models import (
+    ChatRequest,
+    ChatResponse,
+    ChunkResponse,
+    CodeCriticRequest,
+    CodeCriticResponse,
+    CodeGenerateRequest,
+    CodeGenerateResponse,
+    GmailResponse,
+    GmailSummarizeRequest,
+    GoogleAuthRequest,
+    HealthResponse,
+    RAGQueryRequest,
+    RAGQueryResponse,
+    UploadResponse,
+    UserLoginRequest,
+    UserSignUpRequest,
+)
+from tools.gmail_tools import fetch_recent_emails, fetch_single_email
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -109,7 +113,7 @@ def chat(request: ChatRequest):
         facts_saved = check_and_save_fact(session_id, request.message)
 
         handle_message(session_id, "user", request.message)
-        
+
         # Invoke orchestrator with dynamic settings, agent mode, and transient api key
         response = run_orchestrator(
             user_message=request.message,
@@ -124,7 +128,7 @@ def chat(request: ChatRequest):
             response = f"Got it, I'll remember that.\n\n{response}"
 
         handle_message(session_id, "assistant", response)
-        
+
         return ChatResponse(
             response=response,
             agent_used="orchestrator",
@@ -134,7 +138,7 @@ def chat(request: ChatRequest):
     except Exception as e:
         friendly = format_friendly_error(e)
         logger.error(f"Error in chat endpoint: {friendly}", exc_info=True)
-        raise HTTPException(status_code=400, detail=friendly)
+        raise HTTPException(status_code=400, detail=friendly) from e
 
 
 @router.post("/upload", response_model=UploadResponse)
@@ -144,11 +148,11 @@ async def upload_document(file: UploadFile = File(...)):
         chunks = await process_document(file)
         if not chunks:
             raise ValueError(f"No readable content could be extracted from '{file.filename}'.")
-        
+
         # Deduplication: remove existing chunks for this filename before re-ingesting
         deleted_count = delete_documents_by_source(file.filename)
         add_documents(chunks)
-        
+
         msg = (
             f"Document updated successfully ({deleted_count} previous chunks replaced)"
             if deleted_count > 0 else
@@ -162,7 +166,7 @@ async def upload_document(file: UploadFile = File(...)):
     except Exception as e:
         friendly = format_friendly_error(e)
         logger.error(f"Error in upload_document: {friendly}", exc_info=True)
-        raise HTTPException(status_code=400, detail=friendly)
+        raise HTTPException(status_code=400, detail=friendly) from e
 
 
 @router.get("/rag/documents")
@@ -173,7 +177,7 @@ def get_rag_documents(provider: Optional[str] = None, api_key: Optional[str] = N
     except Exception as e:
         friendly = format_friendly_error(e)
         logger.error(f"Error in get_rag_documents: {friendly}", exc_info=True)
-        raise HTTPException(status_code=400, detail=friendly)
+        raise HTTPException(status_code=400, detail=friendly) from e
 
 
 @router.delete("/rag/documents")
@@ -184,7 +188,7 @@ def clear_rag_documents(provider: Optional[str] = None, api_key: Optional[str] =
     except Exception as e:
         friendly = format_friendly_error(e)
         logger.error(f"Error in clear_rag_documents: {friendly}", exc_info=True)
-        raise HTTPException(status_code=400, detail=friendly)
+        raise HTTPException(status_code=400, detail=friendly) from e
 
 
 @router.post("/rag/query", response_model=RAGQueryResponse)
@@ -198,7 +202,7 @@ async def rag_query(request: RAGQueryRequest):
             api_key=request.api_key
         )
         docs = retriever.invoke(request.query)
-        
+
         chunks = []
         sources = []
         for doc in docs:
@@ -209,7 +213,7 @@ async def rag_query(request: RAGQueryRequest):
                 score=doc.metadata.get("score"),
                 source=source
             ))
-            
+
         # Get LLM generated answer with dynamic api key support
         answer = run_rag_agent(
             query=request.query,
@@ -219,7 +223,7 @@ async def rag_query(request: RAGQueryRequest):
             model_name=request.model,
             api_key=request.api_key
         )
-        
+
         return RAGQueryResponse(
             answer=answer,
             sources=list(set(sources)),
@@ -228,7 +232,7 @@ async def rag_query(request: RAGQueryRequest):
     except Exception as e:
         friendly = format_friendly_error(e)
         logger.error(f"Error in rag_query: {friendly}", exc_info=True)
-        raise HTTPException(status_code=400, detail=friendly)
+        raise HTTPException(status_code=400, detail=friendly) from e
 
 
 @router.post("/code/generate", response_model=CodeGenerateResponse)
@@ -246,7 +250,7 @@ async def code_generate(request: CodeGenerateRequest):
     except Exception as e:
         friendly = format_friendly_error(e)
         logger.error(f"Error in code_generate: {friendly}", exc_info=True)
-        raise HTTPException(status_code=400, detail=friendly)
+        raise HTTPException(status_code=400, detail=friendly) from e
 
 
 @router.post("/code/critic", response_model=CodeCriticResponse)
@@ -267,7 +271,7 @@ async def code_critic(request: CodeCriticRequest):
     except Exception as e:
         friendly = format_friendly_error(e)
         logger.error(f"Error in code_critic: {friendly}", exc_info=True)
-        raise HTTPException(status_code=400, detail=friendly)
+        raise HTTPException(status_code=400, detail=friendly) from e
 
 
 @router.get("/agents/status")
@@ -394,9 +398,9 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
         payload = jwt.decode(credentials.credentials, settings.JWT_SECRET_KEY, algorithms=["HS256"])
         return {"user_id": payload["user_id"], "email": payload["email"]}
     except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired, please log in again.")
+        raise HTTPException(status_code=401, detail="Token expired, please log in again.") from None
     except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid authentication token.")
+        raise HTTPException(status_code=401, detail="Invalid authentication token.") from None
 
 
 def get_gmail_flow():
@@ -455,8 +459,8 @@ async def gmail_disconnect(current_user: dict = Depends(get_current_user)):
 
 @router.get("/gmail/list")
 async def gmail_list(
-    max_results: int = 10, 
-    label: str = "INBOX", 
+    max_results: int = 10,
+    label: str = "INBOX",
     q: Optional[str] = None,
     current_user: dict = Depends(get_current_user)
 ):
@@ -467,7 +471,7 @@ async def gmail_list(
         return emails
     except Exception as e:
         logger.error(f"Error in gmail_list: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/gmail/get/{msg_id}")
@@ -479,7 +483,7 @@ async def gmail_get(msg_id: str, current_user: dict = Depends(get_current_user))
         return email
     except Exception as e:
         logger.error(f"Error in gmail_get: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/gmail/summary")
@@ -490,7 +494,7 @@ async def gmail_summarize(
 ):
     try:
         emails_to_summarize = None
-        
+
         if request and request.email_ids:
             # Fetch specific email details
             emails_to_summarize = []
@@ -498,7 +502,7 @@ async def gmail_summarize(
                 email = fetch_single_email(email_id, current_user["user_id"])
                 if isinstance(email, dict):
                     emails_to_summarize.append(email)
-        
+
         # Call the Gmail Agent summary pipeline with transient api key
         summary = run_gmail_agent(
             user_id=current_user["user_id"],
@@ -512,7 +516,7 @@ async def gmail_summarize(
     except Exception as e:
         friendly = format_friendly_error(e)
         logger.error(f"Error in gmail_summarize: {friendly}", exc_info=True)
-        raise HTTPException(status_code=400, detail=friendly)
+        raise HTTPException(status_code=400, detail=friendly) from e
 
 
 @router.post("/auth/signup")
@@ -522,14 +526,14 @@ async def signup(request: UserSignUpRequest):
         from memory.postgres_memory import check_postgres_availability
         if not check_postgres_availability():
             raise HTTPException(
-                status_code=503, 
+                status_code=503,
                 detail="Authentication service is unavailable. PostgreSQL database is not connected. Please contact the administrator or run the app without authentication features."
             )
-        
+
         existing = get_user_by_email(request.email)
         if existing:
             raise HTTPException(status_code=400, detail="A user with this email already exists.")
-        
+
         pw_hash = hash_password(request.password)
         user = create_local_user(request.email, pw_hash, request.name)
         user["token"] = create_access_token(user["id"], user["email"])
@@ -538,7 +542,7 @@ async def signup(request: UserSignUpRequest):
         raise he
     except Exception as e:
         logger.error(f"Error in signup: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/auth/login")
@@ -548,20 +552,20 @@ async def login_local(request: UserLoginRequest):
         from memory.postgres_memory import check_postgres_availability
         if not check_postgres_availability():
             raise HTTPException(
-                status_code=503, 
+                status_code=503,
                 detail="Authentication service is unavailable. PostgreSQL database is not connected."
             )
-        
+
         user = get_user_by_email(request.email)
         if not user:
             raise HTTPException(status_code=401, detail="Invalid email or password.")
-        
+
         if user["auth_provider"] != "local":
             raise HTTPException(status_code=400, detail=f"Please sign in using your {user['auth_provider']} account.")
-            
+
         if not verify_password(user["password_hash"], request.password):
             raise HTTPException(status_code=401, detail="Invalid email or password.")
-            
+
         return {
             "id": user["id"],
             "email": user["email"],
@@ -574,7 +578,7 @@ async def login_local(request: UserLoginRequest):
         raise he
     except Exception as e:
         logger.error(f"Error in login: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/auth/google")
@@ -584,10 +588,10 @@ async def google_auth(request: GoogleAuthRequest):
         from memory.postgres_memory import check_postgres_availability
         if not check_postgres_availability():
             raise HTTPException(
-                status_code=503, 
+                status_code=503,
                 detail="Authentication service is unavailable. PostgreSQL database is not connected."
             )
-        
+
         user = get_or_create_google_user(request.email, request.name, request.picture)
         user["token"] = create_access_token(user["id"], user["email"])
         return user
@@ -595,7 +599,7 @@ async def google_auth(request: GoogleAuthRequest):
         raise he
     except Exception as e:
         logger.error(f"Error in google_auth: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/auth/me")
