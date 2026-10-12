@@ -13,7 +13,8 @@ import { gsap } from 'gsap';
 import { clickableProps } from '../../lib/a11y';
 
 export const CodingPanel = () => {
-  const { apiKey } = useAppStore();
+  // Generation and review use the provider/model chosen in the control bar
+  const { apiKey, activeProvider: localProvider, modelName: localModel } = useAppStore();
   const { setNodeActive, clearActiveNodes } = useAgentStore();
   
   const {
@@ -36,8 +37,6 @@ export const CodingPanel = () => {
   const [showContext, setShowContext] = useState(false);
   const [activeBlockId, setActiveBlockId] = useState(null);
   
-  const [localProvider, setLocalProvider] = useState('openai');
-  const [localModel, setLocalModel] = useState('gpt-4o-mini');
 
   const threadEndRef = useRef(null);
   const sendBtnRef = useRef(null);
@@ -62,16 +61,6 @@ export const CodingPanel = () => {
       setActiveBlockId(generations[generations.length - 1].id);
     }
   }, [generations]);
-
-  const handleProviderChange = (provider) => {
-    setLocalProvider(provider);
-    if (provider === 'openai') setLocalModel('gpt-4o-mini');
-    else if (provider === 'anthropic') setLocalModel('claude-3-5-sonnet-20240620');
-    else if (provider === 'google') setLocalModel('gemini-1.5-pro');
-    else if (provider === 'groq') setLocalModel('llama3-8b-8192');
-    else if (provider === 'openrouter') setLocalModel('meta-llama/llama-3-8b-instruct:free');
-    else if (provider === 'ollama') setLocalModel('llama3');
-  };
 
   const handleSend = async (e) => {
     e.preventDefault();
@@ -147,13 +136,13 @@ export const CodingPanel = () => {
   }
 
   return (
-    <div className="flex-1 flex gap-6 h-full min-h-0 overflow-hidden p-6 relative">
+    <div className="flex-1 flex gap-6 h-full min-h-0 overflow-hidden p-3 sm:p-6 relative">
       
       {/* Left Sidebar: Coding History Tasks */}
-      <div className="w-64 shrink-0 flex flex-col gap-4 h-full min-h-0">
+      <div className="w-64 shrink-0 hidden md:flex flex-col gap-4 h-full min-h-0">
         <button
           onClick={createNewSession}
-          className="w-full py-3 px-4 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white font-semibold text-xs tracking-wide transition-all duration-300 shadow-[0_2px_8px_rgba(217,119,6,0.15)] flex items-center justify-center gap-2 cursor-pointer shrink-0"
+          className="pill-primary w-full shrink-0 py-3! text-xs!"
         >
           <Plus className="h-4 w-4" />
           <span>New Task</span>
@@ -329,51 +318,24 @@ export const CodingPanel = () => {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask orchestrator to generate or edit code..."
+              placeholder="Describe the code to generate or change…"
               disabled={isGenerating}
-              className="w-full bg-white/40 dark:bg-stone-800/40 border border-stone-200/50 dark:border-stone-700 backdrop-blur-md rounded-2xl pl-5 pr-14 py-4 text-sm text-stone-855 dark:text-stone-200 focus:outline-none focus:border-beige-400 dark:focus:border-stone-500 shadow-[0_4px_24px_rgba(28,25,23,0.02)] placeholder-stone-450 dark:placeholder-stone-500 disabled:opacity-50"
+              className="field rounded-full! py-4! pl-6! pr-16! text-sm disabled:opacity-50"
             />
             <button
               ref={sendBtnRef}
               type="submit"
               disabled={!input.trim() || isGenerating}
-              className="absolute right-3 p-2.5 rounded-xl bg-gradient-to-tr from-beige-400 to-beige-600 hover:from-beige-300 hover:to-beige-500 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-[0_2px_8px_rgba(168,152,120,0.2)]"
+              className="absolute right-2 grid h-10 w-10 place-items-center rounded-full bg-white text-black transition-all duration-300 hover:shadow-[0_0_24px_rgba(124,182,234,0.6)] disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Send className="h-4 w-4" />
             </button>
           </div>
 
-          {/* Local Provider/Model override dropdown selectors */}
-          <div className="flex gap-4 shrink-0 px-2">
-            <div className="flex items-center gap-2">
-              <span className="text-[9px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-wider font-mono">Provider:</span>
-              <div className="relative flex items-center">
-                <select
-                  value={localProvider}
-                  onChange={(e) => handleProviderChange(e.target.value)}
-                  className="bg-white/40 dark:bg-stone-800/40 border border-stone-200/40 dark:border-stone-700 text-stone-750 dark:text-stone-200 text-[10px] rounded-lg pl-2 pr-6 py-1 focus:outline-none focus:border-beige-400 dark:focus:border-stone-500 cursor-pointer appearance-none font-sans"
-                >
-                  <option value="openai" className="bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200">OpenAI</option>
-                  <option value="anthropic" className="bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200">Anthropic</option>
-                  <option value="google" className="bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200">Google Gemini</option>
-                  <option value="groq" className="bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200">Groq</option>
-                  <option value="openrouter" className="bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200">OpenRouter</option>
-                  <option value="ollama" className="bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-200">Ollama (Local)</option>
-                </select>
-                <ChevronDown className="absolute right-1.5 h-3 w-3 text-stone-500 dark:text-stone-400 pointer-events-none" />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="text-[9px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-wider font-mono">Model:</span>
-              <input
-                type="text"
-                value={localModel}
-                onChange={(e) => setLocalModel(e.target.value)}
-                className="bg-white/40 dark:bg-stone-800/40 border border-stone-200/40 dark:border-stone-700 text-stone-750 dark:text-stone-200 text-[10px] rounded-lg px-2 py-0.5 focus:outline-none focus:border-beige-400 dark:focus:border-stone-500 font-mono w-32"
-              />
-            </div>
-
+          <div className="flex shrink-0 items-center gap-3 px-3">
+            <span className="font-mono text-[10px] text-stone-500">
+              {localProvider} · {localModel}
+            </span>
             <button
               type="button"
               onClick={clearActiveSession}
@@ -386,7 +348,7 @@ export const CodingPanel = () => {
       </div>
 
       {/* Right Column: Critic Audit panel */}
-      <div className="w-full lg:w-[380px] shrink-0 flex flex-col min-h-0">
+      <div className="w-[380px] shrink-0 hidden lg:flex flex-col min-h-0">
         <GlassCard className="p-5! rounded-2xl flex-grow flex flex-col min-h-0" contentClassName="flex-grow flex flex-col min-h-0">
           <div className="flex items-center gap-2 mb-4 text-xs font-bold text-stone-500 dark:text-stone-400 tracking-wider uppercase font-mono shrink-0">
             <Cpu className="h-4 w-4 text-beige-600 dark:text-beige-400" />
@@ -420,7 +382,7 @@ export const CodingPanel = () => {
                     <button
                       onClick={handleApplyFeedback}
                       disabled={isGenerating}
-                      className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-white font-semibold text-xs transition-all flex items-center justify-center gap-2 shadow-[0_2px_8px_rgba(217,119,6,0.15)] cursor-pointer shrink-0"
+                      className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-white font-semibold text-xs transition-all flex items-center justify-center gap-2 shadow-[0_2px_8px_rgba(51,163,221,0.15)] cursor-pointer shrink-0"
                     >
                       <Play className="h-3.5 w-3.5" />
                       <span>Apply recommendations & refine</span>

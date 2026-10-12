@@ -208,7 +208,7 @@ export const GmailPanel = () => {
           <button
             onClick={handleConnect}
             disabled={isLoading || isConnecting}
-            className="flex items-center justify-center gap-2.5 w-full py-3 rounded-xl bg-gradient-to-r from-beige-400 to-beige-600 hover:from-beige-300 hover:to-beige-500 text-white font-semibold text-xs transition-all disabled:opacity-50 shadow-[0_4px_16px_rgba(168,152,120,0.2)]"
+            className="flex items-center justify-center gap-2.5 w-full py-3 rounded-xl bg-white text-stone-950 hover:bg-stone-100 font-semibold text-xs transition-all disabled:opacity-50 shadow-[0_4px_16px_rgba(124,182,234,0.2)]"
           >
             {isLoading ? (
               <RefreshCw className="h-4 w-4 animate-spin" />

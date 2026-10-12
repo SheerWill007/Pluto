@@ -66,7 +66,7 @@ export const EmailList = ({
           <button
             onClick={onBulkSummarize}
             disabled={selectedIds.length === 0 || isLoading}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-beige-400 to-beige-600 hover:from-beige-300 hover:to-beige-500 text-white font-semibold text-xs transition-all disabled:opacity-50 shadow-[0_4px_12px_rgba(168,152,120,0.2)] shrink-0"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white text-stone-950 hover:bg-stone-100 font-semibold text-xs transition-all disabled:opacity-50 shadow-[0_4px_12px_rgba(124,182,234,0.2)] shrink-0"
           >
             <Sparkles className="h-3.5 w-3.5 animate-pulse" />
             <span>Summarize Selected ({selectedIds.length})</span>

@@ -1,89 +1,255 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
 
-/* Aeonik is a commercial typeface (CoType Foundry) and isn't bundled. Uses an installed copy,
-   or self-host licensed files by adding e.g. url('/fonts/Aeonik-Regular.woff2') format('woff2')
-   to each src list (files go in frontend/public/fonts/). Falls back to the system sans-serif. */
-@font-face {
-  font-family: 'Aeonik';
-  src: local('Aeonik'), local('Aeonik-Regular'), local('Aeonik Regular');
-  font-weight: 400;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Aeonik';
-  src: local('Aeonik Medium'), local('Aeonik-Medium');
-  font-weight: 500;
-  font-display: swap;
-}
-
-
+/* The UI is always dark: panels are written with `dark:` variants and <html> carries .dark */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/*
+ * Cosmic palette. The existing component vocabulary (stone / beige / amber) is remapped so
+ * every panel picks up the deep-space theme: stone = cool blue-black neutrals,
+ * beige = the vortex's ice blue, amber = a brighter cyan accent.
+ */
 @theme {
-  --color-beige-50: #FDFCFA;
-  --color-beige-100: #F5F2EB;
-  --color-beige-150: #FAF7F2;
-  --color-beige-200: #E8DFD0;
-  --color-beige-300: #D9CEBD;
-  --color-beige-400: #C4B5A0;
-  --color-beige-500: #A89878;
-  --color-beige-600: #8B7D6B;
-  --color-beige-700: #7A6E5C;
-  --color-glass-light: rgba(255, 255, 255, 0.38);
-  --color-glass-dark: rgba(253, 251, 247, 0.45);
-  --color-glass-border: rgba(255, 255, 255, 0.55);
-  --color-glass-shine: rgba(255, 255, 255, 0.72);
-  --font-sans: 'Outfit', 'Inter', sans-serif;
+  --color-stone-50: #f3f6fb;
+  --color-stone-100: #e6ebf3;
+  --color-stone-150: #d9e0eb;
+  --color-stone-200: #c7d0de;
+  --color-stone-250: #b4bfd0;
+  --color-stone-300: #a3aec2;
+  --color-stone-400: #7d889e;
+  --color-stone-450: #6b768c;
+  --color-stone-500: #5a647a;
+  --color-stone-600: #3f485b;
+  --color-stone-700: #262d3c;
+  --color-stone-750: #1d2331;
+  --color-stone-800: #151a26;
+  --color-stone-850: #10141e;
+  --color-stone-855: #0f131c;
+  --color-stone-900: #0b0e16;
+  --color-stone-950: #05070c;
+
+  --color-beige-50: #f0f7ff;
+  --color-beige-100: #ddedfd;
+  --color-beige-150: #cfe4fa;
+  --color-beige-200: #b7d6f5;
+  --color-beige-300: #a3cdf2;
+  --color-beige-400: #7cb6ea;
+  --color-beige-500: #4f95d6;
+  --color-beige-600: #3a7abb;
+  --color-beige-700: #2c5f93;
+
+  --color-amber-50: #ecf9ff;
+  --color-amber-100: #d3f0fd;
+  --color-amber-200: #aee3fa;
+  --color-amber-300: #84d2f6;
+  --color-amber-400: #57bcee;
+  --color-amber-500: #33a3dd;
+  --color-amber-505: #33a3dd;
+  --color-amber-600: #2684bb;
+  --color-amber-700: #206993;
+  --color-amber-800: #1d5576;
+  --color-amber-900: #18405a;
+  --color-amber-950: #0d2638;
+
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Instrument Serif', 'Times New Roman', serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-html, body, #root {
+:root {
+  color-scheme: dark;
+  --space: #03050a;
+}
+
+html,
+body {
   margin: 0;
   padding: 0;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  background-color: #F5F2EB;
-  color: #44403c;
-  cursor: default;
+  background-color: var(--space);
+  color: #e6ebf3;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-body:has(.login-page-scrollable), 
-html:has(.login-page-scrollable), 
-#root:has(.login-page-scrollable) {
-  overflow: visible;
-  height: auto;
+#root {
   min-height: 100%;
 }
 
-html.dark, .dark body, .dark #root {
-  background-color: #1c1917;
-  color: #e7e5e4;
+::selection {
+  background: rgba(124, 182, 234, 0.35);
+  color: #fff;
 }
 
-input, textarea {
+/* --- Lenis (recommended base styles) --------------------------------------- */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+/* --- Shared component classes ---------------------------------------------- */
+@layer components {
+  .font-display {
+    font-family: var(--font-display);
+    font-weight: 400;
+    letter-spacing: -0.02em;
+  }
+
+  .eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.38em;
+    text-transform: uppercase;
+    color: rgba(230, 235, 243, 0.55);
+  }
+
+  .pill-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    background: #fff;
+    color: #05070c;
+    font-weight: 500;
+    font-size: 0.9rem;
+    padding: 0.85rem 1.75rem;
+    transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+  }
+  .pill-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 40px -10px rgba(124, 182, 234, 0.6);
+  }
+  .pill-primary:disabled {
+    opacity: 0.55;
+    transform: none;
+  }
+
+  .pill-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    background: rgba(5, 7, 12, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: #fff;
+    font-weight: 500;
+    font-size: 0.9rem;
+    padding: 0.85rem 1.75rem;
+    transition: border-color 0.25s ease, background 0.25s ease;
+  }
+  .pill-ghost:hover {
+    border-color: rgba(255, 255, 255, 0.35);
+    background: rgba(21, 26, 38, 0.9);
+  }
+
+  .glass-panel {
+    background: rgba(8, 11, 18, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(22px) saturate(1.2);
+    -webkit-backdrop-filter: blur(22px) saturate(1.2);
+  }
+
+  .field {
+    width: 100%;
+    border-radius: 0.9rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #f3f6fb;
+    font-size: 0.875rem;
+    padding: 0.75rem 1rem;
+    transition: border-color 0.2s ease, background 0.2s ease;
+  }
+  .field::placeholder {
+    color: rgba(163, 174, 194, 0.55);
+  }
+  .field:focus {
+    outline: none;
+    border-color: rgba(124, 182, 234, 0.6);
+    background: rgba(255, 255, 255, 0.06);
+  }
+}
+
+/* Native <option> popups ignore most styling; keep them readable on dark */
+option {
+  background: #0b0e16;
+  color: #e6ebf3;
+}
+
+input,
+textarea {
   cursor: text;
 }
 
-button, a, select, option, label {
+button,
+a,
+select,
+label {
   cursor: pointer;
 }
 
-::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+:focus-visible {
+  outline: 2px solid rgba(124, 182, 234, 0.7);
+  outline-offset: 2px;
 }
 
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
 ::-webkit-scrollbar-track {
   background: transparent;
 }
-
 ::-webkit-scrollbar-thumb {
-  background: rgba(168, 152, 120, 0.18);
+  background: rgba(124, 182, 234, 0.18);
   border-radius: 999px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(168, 152, 120, 0.32);
+  background: rgba(124, 182, 234, 0.35);
 }
 
+@keyframes marquee {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+@keyframes scroll-cue {
+  0% {
+    transform: scaleY(0);
+    transform-origin: top;
+  }
+  45% {
+    transform: scaleY(1);
+    transform-origin: top;
+  }
+  55% {
+    transform: scaleY(1);
+    transform-origin: bottom;
+  }
+  100% {
+    transform: scaleY(0);
+    transform-origin: bottom;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

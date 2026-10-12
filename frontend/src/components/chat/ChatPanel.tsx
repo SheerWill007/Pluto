@@ -5,7 +5,7 @@ import { streamSSE, errorMessage, type SSEEvent } from '../../lib/api';
 import { useChatStore } from '../../store/useChatStore';
 import MessageBubble from './MessageBubble';
 import GlassCard from '../ui/GlassCard';
-import { Send, Terminal, Sparkles, ChevronDown, ChevronUp, Radio, Plus, Trash2, MessageSquare } from 'lucide-react';
+import { Send, Terminal, Sparkles, ChevronDown, ChevronUp, Plus, Trash2, MessageSquare } from 'lucide-react';
 import { gsap } from 'gsap';
 import { clickableProps } from '../../lib/a11y';
 
@@ -20,7 +20,7 @@ const TOOL_NODES: Record<string, string[]> = {
 const estimateTokens = (text: string) => Math.round(text.length / 4);
 
 export const ChatPanel = () => {
-  const { activeProvider, modelName, ollamaBaseUrl, setOllamaBaseUrl, agentMode, systemPrompt } = useAppStore();
+  const { activeProvider, modelName, agentMode, systemPrompt } = useAppStore();
   const { setNodeActive, clearActiveNodes } = useAgentStore();
   const {
     chats,
@@ -61,25 +61,6 @@ export const ChatPanel = () => {
   useEffect(() => {
     threadEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
-
-  const sendToOllama = async (userMessage: string, signal: AbortSignal) => {
-    const response = await fetch(`${ollamaBaseUrl}/api/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal,
-      body: JSON.stringify({
-        model: modelName,
-        messages: [
-          ...(activeSystemPrompt ? [{ role: 'system', content: activeSystemPrompt }] : []),
-          { role: 'user', content: userMessage },
-        ],
-        stream: false,
-      }),
-    });
-    if (!response.ok) throw new Error('Ollama connection failed.');
-    const data = await response.json();
-    return (data.message?.content as string) || 'Empty response.';
-  };
 
   const streamFromBackend = async (userMessage: string, signal: AbortSignal) => {
     let final = '';
@@ -139,9 +120,7 @@ export const ChatPanel = () => {
     const t0 = performance.now();
 
     try {
-      const content = activeProvider === 'ollama'
-        ? await sendToOllama(userMessage, controller.signal)
-        : await streamFromBackend(userMessage, controller.signal);
+      const content = await streamFromBackend(userMessage, controller.signal);
       updateLastMessage((m) => {
         const text = content || m.content || 'Empty response.';
         return {
@@ -177,14 +156,14 @@ export const ChatPanel = () => {
   }
 
   return (
-    <div className="flex-1 flex gap-6 h-full min-h-0 overflow-hidden p-6 relative">
+    <div className="flex-1 flex gap-6 h-full min-h-0 overflow-hidden p-3 sm:p-6 relative">
 
       {/* Left Sidebar: Recent Chats */}
-      <div className="w-64 shrink-0 flex flex-col gap-4 h-full min-h-0">
+      <div className="w-64 shrink-0 hidden md:flex flex-col gap-4 h-full min-h-0">
         {/* "+ New Chat" Button */}
         <button
           onClick={() => createNewChat(systemPrompt)}
-          className="w-full py-3 px-4 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white font-semibold text-xs tracking-wide transition-all duration-300 shadow-[0_2px_8px_rgba(217,119,6,0.15)] flex items-center justify-center gap-2 cursor-pointer shrink-0"
+          className="pill-primary w-full shrink-0 py-3! text-xs!"
         >
           <Plus className="h-4 w-4" />
           <span>New Chat</span>
@@ -259,23 +238,6 @@ export const ChatPanel = () => {
           )}
         </GlassCard>
 
-        {/* Ollama Local URL Configuration */}
-        {activeProvider === 'ollama' && (
-          <GlassCard className="mb-4 shrink-0 p-3! rounded-xl border-beige-200/50 dark:border-stone-700 bg-beige-150/50 dark:bg-stone-800/50">
-            <div className="flex items-center gap-3">
-              <Radio className="h-4 w-4 text-beige-600 dark:text-beige-400 animate-pulse" />
-              <span className="text-xs font-bold text-beige-700 dark:text-beige-300 font-sans">Ollama Local Connection</span>
-              <input
-                type="text"
-                value={ollamaBaseUrl}
-                onChange={(e) => setOllamaBaseUrl(e.target.value)}
-                placeholder="e.g. http://localhost:11434"
-                className="bg-white dark:bg-stone-800 border border-beige-300/60 dark:border-stone-700 text-stone-800 dark:text-stone-200 text-xs rounded-lg px-2.5 py-1 focus:outline-none focus:border-beige-400 dark:focus:border-stone-500 font-mono flex-1"
-              />
-            </div>
-          </GlassCard>
-        )}
-
         <GlassCard
           className="flex-1 flex flex-col rounded-2xl relative mb-4 overflow-hidden min-h-0"
           contentClassName="flex-grow flex flex-col overflow-hidden p-4 min-h-0"
@@ -307,14 +269,14 @@ export const ChatPanel = () => {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask orchestrator a query..."
-            className="w-full bg-white/40 dark:bg-stone-800/40 border border-white/50 dark:border-stone-700 backdrop-blur-md rounded-2xl pl-5 pr-14 py-4 text-sm text-stone-800 dark:text-stone-200 focus:outline-none focus:border-beige-400 dark:focus:border-stone-500 shadow-[0_4px_24px_rgba(28,25,23,0.02)] placeholder-stone-400 dark:placeholder-stone-500"
+            placeholder={agentMode ? "Ask anything — agents can search the web, your documents and Gmail…" : "Ask the orchestrator anything…"}
+            className="field rounded-full! py-4! pl-6! pr-16! text-sm"
           />
           <button
             ref={sendBtnRef}
             type="submit"
             disabled={!input.trim() || isLoading}
-            className="absolute right-3 p-2.5 rounded-xl bg-gradient-to-tr from-beige-400 to-beige-600 hover:from-beige-300 hover:to-beige-500 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-[0_2px_8px_rgba(168,152,120,0.2)]"
+            className="absolute right-2 grid h-10 w-10 place-items-center rounded-full bg-white text-black transition-all duration-300 hover:shadow-[0_0_24px_rgba(124,182,234,0.6)] disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Send className="h-4 w-4" />
           </button>

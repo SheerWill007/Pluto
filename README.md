@@ -149,7 +149,7 @@ Gmail requires a registered (non-guest) account.
 
 ```bash
 ruff check .                 # lint (incl. security rules)
-pytest --cov                 # 87 tests: security, API contracts, isolation, streaming, agents
+pytest --cov                 # 93 tests: security, API contracts, isolation, streaming, agents
 cd frontend && npm run check # typecheck + lint + production build
 ```
 

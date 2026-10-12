@@ -83,3 +83,65 @@ def test_runaway_tool_loop_is_stopped(monkeypatch):
 
     _patch_model(monkeypatch, ToolCallingFake(messages=endless()))
     assert orchestrator.run_orchestrator("loop", USER, LLMSelection()) == orchestrator.LOOP_LIMIT_MESSAGE
+
+
+def test_failing_tool_is_reported_to_the_model_not_raised(monkeypatch):
+    def broken(query):
+        raise RuntimeError("search backend exploded")
+
+    monkeypatch.setattr(orchestrator.web_search, "func", broken)
+    seen = []
+
+    class Recording(ToolCallingFake):
+        def _stream(self, messages, stop=None, run_manager=None, **kwargs):
+            seen.append(messages)
+            yield from super()._stream(messages, stop, run_manager, **kwargs)
+
+    script = iter([
+        AIMessage(content="", tool_calls=[{"name": "web_search", "args": {"__arg1": "news"},
+                                           "id": "call_1", "type": "tool_call"}]),
+        AIMessage(content="Search is down right now."),
+    ])
+    _patch_model(monkeypatch, Recording(messages=script))
+
+    events = list(orchestrator.stream_orchestrator("news?", USER, LLMSelection()))
+    assert events[-1] == {"type": "done", "content": "Search is down right now."}
+    tool_message = seen[-1][-1]
+    assert "search backend exploded" in tool_message.content
+
+
+def test_falls_back_to_plain_chat_when_model_rejects_tools(monkeypatch):
+    class NoToolsModel(ToolCallingFake):
+        bound: bool = False
+
+        def bind_tools(self, tools, **kwargs):
+            clone = NoToolsModel(messages=self.messages)
+            clone.bound = True
+            return clone
+
+        def _stream(self, messages, stop=None, run_manager=None, **kwargs):
+            if self.bound:
+                raise ValueError("registry.ollama.ai/library/llama3 does not support tools (status code: 400)")
+            yield from super()._stream(messages, stop, run_manager, **kwargs)
+
+    _patch_model(monkeypatch, NoToolsModel(messages=iter([AIMessage(content="Plain answer")])))
+    events = list(orchestrator.stream_orchestrator("hi", USER, LLMSelection(), agent_mode=True))
+    assert events[-1] == {"type": "done", "content": "Plain answer"}
+
+    _patch_model(monkeypatch, NoToolsModel(messages=iter([AIMessage(content="Blocking answer")])))
+    assert orchestrator.run_orchestrator("hi", USER, LLMSelection()) == "Blocking answer"
+
+
+def test_unrelated_model_errors_still_surface(monkeypatch):
+    class Broken(ToolCallingFake):
+        def _stream(self, messages, stop=None, run_manager=None, **kwargs):
+            raise RuntimeError("Incorrect API key provided")
+            yield  # pragma: no cover
+
+    _patch_model(monkeypatch, Broken(messages=iter([])))
+    try:
+        list(orchestrator.stream_orchestrator("hi", USER, LLMSelection()))
+    except RuntimeError as e:
+        assert "API key" in str(e)
+    else:
+        raise AssertionError("expected the provider error to propagate")

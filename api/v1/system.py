@@ -97,17 +97,17 @@ def agents_status():
     chroma_ok = vector_store.is_ready()
     status["chromadb"] = _status(chroma_ok, (time.perf_counter() - t0) * 1000, when_down="idle")
 
+    # Always probe Ollama: the UI can switch to it even when the server default is a cloud provider
     cfg = settings.get_llm_config()
-    if cfg["provider"] == "ollama":
-        t0 = time.perf_counter()
-        try:
-            with httpx.Client(timeout=0.5) as http:
-                ollama_ok = http.get(cfg.get("base_url") or "http://localhost:11434").status_code == 200
-        except Exception:
-            ollama_ok = False
-        status["ollama"] = _status(ollama_ok, (time.perf_counter() - t0) * 1000)
-    else:
-        status["ollama"] = _status(False)
+    ollama_url = cfg.get("base_url") if cfg["provider"] == "ollama" else None
+    ollama_url = ollama_url or settings.OLLAMA_BASE_URL or "http://localhost:11434"
+    t0 = time.perf_counter()
+    try:
+        with httpx.Client(timeout=0.5) as http:
+            ollama_ok = http.get(ollama_url).status_code == 200
+    except Exception:
+        ollama_ok = False
+    status["ollama"] = _status(ollama_ok, (time.perf_counter() - t0) * 1000)
 
     llm_ready = bool(cfg.get("api_key")) or cfg["provider"] == "ollama"
     status["orchestrator"] = _status(llm_ready, when_down="idle", last_action="Listening for prompts")

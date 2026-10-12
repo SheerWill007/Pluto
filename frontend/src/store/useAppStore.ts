@@ -108,7 +108,6 @@ interface AppState {
   activeProvider: Provider;
   modelName: string;
   apiKey: string;
-  ollamaBaseUrl: string;
   gmailConnected: boolean;
   agentMode: boolean;
   systemPrompt: string;
@@ -128,7 +127,6 @@ interface AppState {
   setModelName: (modelName: string) => void;
   setApiKey: (key: string) => void;
   clearApiKey: () => void;
-  setOllamaBaseUrl: (url: string) => void;
   setGmailConnected: (connected: boolean) => void;
   setAgentMode: (mode: boolean) => void;
   setSystemPrompt: (prompt: string) => void;
@@ -153,7 +151,6 @@ export const useAppStore = create<AppState>((set, get) => {
     activeProvider: 'google',
     modelName: DEFAULT_MODELS.google,
     apiKey: getStoredKey('google'),
-    ollamaBaseUrl: 'http://localhost:11434',
     gmailConnected: false,
     agentMode: false,
     systemPrompt:
@@ -255,7 +252,6 @@ export const useAppStore = create<AppState>((set, get) => {
       set({ apiKey: '' });
     },
 
-    setOllamaBaseUrl: (url) => set({ ollamaBaseUrl: url }),
     setGmailConnected: (connected) => set({ gmailConnected: connected }),
     setAgentMode: (mode) => set({ agentMode: mode }),
     setSystemPrompt: (prompt) => set({ systemPrompt: prompt }),

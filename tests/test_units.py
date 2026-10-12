@@ -117,3 +117,36 @@ class TestSettings:
         monkeypatch.setattr(settings, "CORS_ORIGINS", "*")
         problems = " ".join(settings.validate_for_startup())
         assert "JWT_SECRET_KEY" in problems and "CORS_ORIGINS" in problems
+
+
+# --- Model and endpoint resolution ------------------------------------------------
+
+def test_retired_and_invented_model_names_are_upgraded():
+    from llm_provider.llm_initializer import resolve_llm_config
+    cfg = resolve_llm_config(provider="google", model="gemini-3.6-flash", api_key="AIza-test")
+    assert cfg["model"] == "gemini-flash-lite-latest"
+    cfg = resolve_llm_config(provider="groq", model="llama-3.1-8b-instant", api_key="gsk_test")
+    assert cfg["model"] == "openai/gpt-oss-20b"
+
+
+def test_current_model_names_pass_through():
+    from llm_provider.llm_initializer import resolve_llm_config
+    assert resolve_llm_config(provider="groq", model="qwen/qwen3-32b", api_key="gsk_test")["model"] == "qwen/qwen3-32b"
+    assert resolve_llm_config(provider="openai", model="o4-mini", api_key="sk-test")["model"] == "o4-mini"
+    # A model from another vendor falls back to the provider default
+    assert resolve_llm_config(provider="openai", model="gemini-flash-latest", api_key="sk-test")["model"] == "gpt-4o-mini"
+
+
+def test_server_base_url_is_not_reused_for_other_providers(monkeypatch):
+    from llm_provider import llm_initializer
+    # Server configured for Groq (which implies Groq's OpenAI-compatible base URL)
+    for field, value in {"LLM_PROVIDER": "groq", "GROQ_API_KEY": "gsk_server", "LLM_BASE_URL": None,
+                         "BASE_URL": None, "OLLAMA_BASE_URL": None}.items():
+        monkeypatch.setattr(llm_initializer.settings, field, value)
+
+    openai_cfg = llm_initializer.resolve_llm_config(provider="openai", api_key="sk-user")
+    assert openai_cfg["base_url"] is None
+    groq_cfg = llm_initializer.resolve_llm_config(provider="groq")
+    assert groq_cfg["base_url"] == "https://api.groq.com/openai/v1"
+    assert groq_cfg["api_key"] == "gsk_server"
+    assert llm_initializer.resolve_llm_config(provider="ollama")["base_url"] == "http://localhost:11434"

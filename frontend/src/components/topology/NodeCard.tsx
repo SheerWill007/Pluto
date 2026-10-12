@@ -100,7 +100,7 @@ export const NodeCard = ({ id, label, position, statusInfo = {} as Partial<NodeS
       <mesh>
         <ringGeometry args={[0.32, 0.38, 6]} />
         <meshBasicMaterial 
-          color={isActive ? "#d97706" : (status === 'connected' ? "#10b981" : "#d6d3d1")} 
+          color={isActive ? "#7cb6ea" : (status === 'connected' ? "#10b981" : "#3f485b")} 
           transparent 
           opacity={isActive ? 0.9 : 0.4} 
         />
@@ -114,8 +114,8 @@ export const NodeCard = ({ id, label, position, statusInfo = {} as Partial<NodeS
           onMouseLeave={() => setHoveredNode(null)}
           className={`relative flex flex-col justify-between w-38 h-18 rounded-xl border p-2 bg-white/95 dark:bg-stone-900/95 backdrop-blur-xl transition-all duration-300 cursor-grab active:cursor-grabbing hover:scale-[1.04] ${
             isActive
-              ? 'border-amber-400 shadow-[0_6px_18px_rgba(217,119,6,0.14)]'
-              : (status === 'connected' ? 'border-emerald-400/80 shadow-[0_6px_14px_rgba(16,185,129,0.06)]' : 'border-stone-200/80 dark:border-stone-700/80 shadow-[0_6px_14px_rgba(28,25,23,0.03)]')
+              ? 'border-amber-400 shadow-[0_6px_18px_rgba(51,163,221,0.14)]'
+              : (status === 'connected' ? 'border-emerald-400/80 shadow-[0_6px_14px_rgba(16,185,129,0.06)]' : 'border-stone-200/80 dark:border-stone-700/80 shadow-[0_6px_14px_rgba(0,0,0,0.03)]')
           }`}
         >
           {/* Top Row: Status Dot, Badge & Latency */}

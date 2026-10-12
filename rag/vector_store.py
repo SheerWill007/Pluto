@@ -5,6 +5,7 @@ delete, and list is filtered by it, so users only ever see their own documents.
 
 import logging
 import threading
+import warnings
 from typing import Optional
 
 from chromadb.config import Settings as ChromaSettings
@@ -65,9 +66,13 @@ def get_retriever(owner: str, top_k: int = 4, source: Optional[str] = None):
 def search(owner: str, query: str, top_k: int = 4, source: Optional[str] = None) -> list:
     """Returns [(Document, relevance score in [0, 1])], best first."""
     try:
-        return _vectorstore().similarity_search_with_relevance_scores(
-            query, k=top_k, filter=_where(owner, source)
-        )
+        with warnings.catch_warnings():
+            # Squared-L2 collections can yield scores slightly outside [0, 1]; we clamp below
+            warnings.filterwarnings("ignore", message="Relevance scores must be between 0 and 1")
+            results = _vectorstore().similarity_search_with_relevance_scores(
+                query, k=top_k, filter=_where(owner, source)
+            )
+        return [(doc, min(1.0, max(0.0, score))) for doc, score in results]
     except Exception as e:
         # Some embedding/distance combinations can't produce normalized scores
         logger.debug("Relevance scores unavailable (%s); falling back to plain search", e)

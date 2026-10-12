@@ -4,75 +4,37 @@ Universal zero-config LLM model resolution with intelligent auto-detection, comp
 """
 
 import logging
+import re
 from typing import Any, Dict, Optional
 
 from langchain_core.language_models.llms import LLM
 
+from config.models import default_model, upgrade_model
 from config.settings import settings
 
 from .provider_factory import LLMProviderFactory
 
 logger = logging.getLogger(__name__)
 
-ACTIVE_MODELS_MAP = {
-    "google": {
-        "default": "gemini-3.5-flash",
-        "deprecated": {
-            "gemini-pro": "gemini-3.6-flash",
-            "gemini-1.5-pro": "gemini-3.6-flash",
-            "gemini-1.5-flash": "gemini-3.6-flash",
-            "gemini-2.0-flash": "gemini-3.6-flash",
-            "gemini-2.5-flash": "gemini-3.6-flash",
-            "gemini-2.5-flash-lite": "gemini-3.6-flash",
-        }
-    },
-    "openai": {
-        "default": "gpt-4o-mini",
-        "deprecated": {
-            "gpt-3.5-turbo": "gpt-4o-mini",
-            "gpt-4": "gpt-4o",
-        }
-    },
-    "anthropic": {
-        "default": "claude-sonnet-5-5",
-        "deprecated": {
-            "claude-3-opus-20240229": "claude-sonnet-5-5",
-            "claude-3-5-sonnet-20240620": "claude-sonnet-5-5",
-            "claude-3-haiku-20240307": "claude-haiku-5-5",
-        }
-    },
-    "groq": {
-        "default": "openai/gpt-oss-20b",
-        "deprecated": {
-            "llama3-8b-8192": "openai/gpt-oss-20b",
-            "llama-3.1-8b-instant": "openai/gpt-oss-20b",
-            "llama-3.3-70b-versatile": "openai/gpt-oss-120b",
-        }
-    },
-    "openrouter": {
-        "default": "openai/gpt-4o-mini",
-        "deprecated": {}
-    },
-    "ollama": {
-        "default": "llama3",
-        "deprecated": {}
-    }
-}
-
 
 def is_model_compatible_with_provider(provider: str, model_name: str) -> bool:
-    """Check if model name matches the provider to prevent cross-provider errors."""
+    """
+    Rejects model names that obviously belong to another vendor, so switching providers in
+    the UI never sends e.g. a Gemini model name to OpenAI. Aggregators (OpenRouter) and
+    local runtimes (Ollama) host arbitrary models and accept anything.
+    """
     if not model_name:
         return False
     m = model_name.lower()
     if provider == "google":
         return "gemini" in m or "gemma" in m
     if provider == "openai":
-        return "gpt" in m or "o1" in m or "o3" in m or "text-embedding" in m
+        return "gpt" in m or bool(re.match(r"^(o\d|chatgpt|text-embedding)", m))
     if provider == "anthropic":
         return "claude" in m
     if provider == "groq":
-        return "llama" in m or "mixtral" in m or "gemma" in m or "gpt-oss" in m
+        # Groq hosts many open-weight families (gpt-oss, llama, qwen, kimi, ...), never these
+        return not any(v in m for v in ("gemini", "claude")) and not m.startswith("gpt-")
     return True
 
 
@@ -139,26 +101,26 @@ def resolve_llm_config(
             logger.warning("Custom key for Google does not look like a Gemini key. Falling back to .env key.")
             resolved_key = base_config.get("api_key")
 
-    # Resolve model name with strict compatibility check
-    provider_info = ACTIVE_MODELS_MAP.get(resolved_provider, {})
-    default_model = provider_info.get("default", "gpt-4o-mini")
-    deprecated_map = provider_info.get("deprecated", {})
-
+    # Resolve model name with strict compatibility check, upgrading retired names
     if req_model and is_model_compatible_with_provider(resolved_provider, req_model):
-        resolved_model = deprecated_map.get(req_model, req_model)
-    elif base_config.get("model") and base_config["provider"] == resolved_provider and is_model_compatible_with_provider(resolved_provider, base_config["model"]):
-        resolved_model = deprecated_map.get(base_config["model"], base_config["model"])
+        resolved_model = upgrade_model(resolved_provider, req_model)
+    elif (base_config.get("model") and base_config["provider"] == resolved_provider
+          and is_model_compatible_with_provider(resolved_provider, base_config["model"])):
+        resolved_model = upgrade_model(resolved_provider, base_config["model"])
     else:
-        resolved_model = default_model
+        resolved_model = default_model(resolved_provider)
 
-    # Resolve base URL
-    base_url = kwargs.get("base_url") or base_config.get("base_url")
-    if resolved_provider == "groq" and not base_url:
-        base_url = "https://api.groq.com/openai/v1"
-    elif resolved_provider == "openrouter" and not base_url:
-        base_url = "https://openrouter.ai/api/v1"
-    elif resolved_provider == "ollama" and not base_url:
-        base_url = "http://localhost:11434"
+    # Resolve base URL. The server's base URL belongs to the server's provider only;
+    # reusing it for another provider would send that provider's key to the wrong host.
+    base_url = kwargs.get("base_url")
+    if not base_url and resolved_provider == base_config.get("provider"):
+        base_url = base_config.get("base_url")
+    if not base_url:
+        base_url = {
+            "groq": "https://api.groq.com/openai/v1",
+            "openrouter": "https://openrouter.ai/api/v1",
+            "ollama": settings.OLLAMA_BASE_URL or "http://localhost:11434",
+        }.get(resolved_provider)
 
     config = {
         "provider": resolved_provider,

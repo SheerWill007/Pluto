@@ -1,12 +1,23 @@
 export type Provider = 'openai' | 'anthropic' | 'google' | 'groq' | 'openrouter' | 'ollama';
 
+// Keep in sync with ACTIVE_MODELS_MAP defaults in llm_provider/llm_initializer.py
 export const DEFAULT_MODELS: Record<Provider, string> = {
   google: 'gemini-flash-lite-latest',
   openai: 'gpt-4o-mini',
   anthropic: 'claude-sonnet-5-5',
-  groq: 'llama-3.1-8b-instant',
+  groq: 'openai/gpt-oss-20b',
   openrouter: 'openai/gpt-4o-mini',
-  ollama: 'llama3',
+  // Tool calling (which the orchestrator needs) requires llama3.1 or newer
+  ollama: 'llama3.1',
+};
+
+export const PROVIDER_LABELS: Record<Provider, string> = {
+  google: 'Google Gemini',
+  openai: 'OpenAI',
+  anthropic: 'Anthropic',
+  groq: 'Groq',
+  openrouter: 'OpenRouter',
+  ollama: 'Ollama (local)',
 };
 
 export interface AuthUser {

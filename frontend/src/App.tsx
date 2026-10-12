@@ -1,61 +1,37 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAppStore } from './store/useAppStore';
-import { useLenis } from './hooks/useLenis';
 import ErrorBoundary from './components/ErrorBoundary';
 
 // Route-level code splitting
-const Login = lazy(() => import('./pages/Login'));
+const Landing = lazy(() => import('./pages/Landing'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
-const GlowCursor = lazy(() => import('./components/ui/GlowCursor'));
-
-function RouteEnhancements() {
-  useLenis();
-
-  return (
-    <Suspense fallback={null}>
-      <GlowCursor
-        color="#A89878"
-        secondaryColor="#8B7D6B"
-        trailLength={5}
-        trailWidth={3}
-        glowIntensity={0}
-        glowSpread={0}
-        hotspot={0}
-        brightness={1.0}
-        blendMode="normal"
-        idleFade
-      />
-    </Suspense>
-  );
-}
-
-function AppShell() {
-  const { pathname } = useLocation();
-  return pathname === '/login' ? null : <RouteEnhancements />;
-}
 
 function PageFallback() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F5F2EB] dark:bg-stone-950" aria-busy="true">
-      <span className="h-6 w-6 border-2 border-stone-300 border-t-stone-600 rounded-full animate-spin" />
+    <div className="flex min-h-screen items-center justify-center bg-[#03050a]" aria-busy="true">
+      <span className="h-6 w-6 animate-spin rounded-full border-2 border-white/15 border-t-beige-300" />
       <span className="sr-only">Loading…</span>
     </div>
   );
 }
 
-const DASHBOARD_ROUTES = ['/chat', '/rag', '/gmail', '/coding'];
+export const DASHBOARD_ROUTES = ['/chat', '/rag', '/gmail', '/coding', '/topology'];
 
 function AppRoutes() {
   const isAuthenticated = useAppStore((s) => s.isAuthenticated);
   const { pathname } = useLocation();
 
+  // The landing page renders at "/" itself (rather than redirecting) so the Google
+  // redirect sign-in callback keeps its ?code=...&state=... query string.
+  const landing = isAuthenticated ? <Navigate to="/chat" replace /> : <Landing />;
+
   return (
     <ErrorBoundary resetKey={pathname}>
       <Suspense fallback={<PageFallback />}>
         <Routes>
-          <Route path="/" element={<Navigate to={isAuthenticated ? '/chat' : '/login'} replace />} />
-          <Route path="/login" element={isAuthenticated ? <Navigate to="/chat" replace /> : <Login />} />
+          <Route path="/" element={landing} />
+          <Route path="/login" element={landing} />
           {DASHBOARD_ROUTES.map((path) => (
             <Route
               key={path}
@@ -79,7 +55,6 @@ function App() {
 
   return (
     <BrowserRouter>
-      <AppShell />
       <AppRoutes />
     </BrowserRouter>
   );

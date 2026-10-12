@@ -56,7 +56,7 @@ export const SummaryCard = ({ email, summary, onSummarize, isLoading }) => {
               <button
                 onClick={() => onSummarize(email.id)}
                 disabled={isLoading}
-                className="mt-4 flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-beige-500 hover:bg-beige-400 text-white font-semibold text-xs transition-all disabled:opacity-50 shadow-[0_4px_12px_rgba(168,152,120,0.25)]"
+                className="mt-4 flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-beige-500 hover:bg-beige-400 text-white font-semibold text-xs transition-all disabled:opacity-50 shadow-[0_4px_12px_rgba(124,182,234,0.25)]"
               >
                 {isLoading ? (
                   <>

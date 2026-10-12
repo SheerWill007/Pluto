@@ -4,6 +4,8 @@ from typing import Any, Dict, List, Optional
 
 from pydantic_settings import BaseSettings
 
+from config.models import default_model, upgrade_model
+
 ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
 
 APP_VERSION = "2.0.0"
@@ -198,31 +200,8 @@ class Settings(BaseSettings):
             else:
                 provider = "openai"
 
-        # 4. Standard active models per provider
-        provider_default_models = {
-            "google": "gemini-flash-lite-latest",
-            "openai": "gpt-4o-mini",
-            "anthropic": "claude-sonnet-5-5",
-            "groq": "llama-3.1-8b-instant",
-            "openrouter": "openai/gpt-4o-mini",
-            "ollama": "llama3",
-        }
-
-        # Auto-upgrade deprecated or quota-restricted model names
-        deprecated_models = {
-            "gemini-pro": "gemini-flash-lite-latest",
-            "gemini-1.5-pro": "gemini-flash-lite-latest",
-            "gemini-1.5-flash": "gemini-flash-lite-latest",
-            "gemini-2.0-flash": "gemini-flash-lite-latest",
-            "gemini-2.5-flash": "gemini-flash-lite-latest",
-            "gemini-3.5-flash": "gemini-flash-lite-latest",
-            "gemini-3.6-flash": "gemini-flash-lite-latest",
-            "gpt-3.5-turbo": "gpt-4o-mini",
-            "llama3-8b-8192": "llama-3.1-8b-instant",
-        }
-
-        if not model or model in deprecated_models:
-            model = deprecated_models.get(model) or provider_default_models.get(provider, "gpt-4o-mini")
+        # 4. Default model per provider; retired names are upgraded (see config/models.py)
+        model = upgrade_model(provider, model) if model else default_model(provider)
 
         # 5. Base URLs
         if provider == "groq" and not base_url:

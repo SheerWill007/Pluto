@@ -18,6 +18,7 @@ from langgraph.prebuilt import ToolNode
 
 from agents.common import LLMSelection, message_text, track_llm_call
 from agents.gmail_agent import run_gmail_agent
+from core.errors import friendly_llm_error
 from core.security import CurrentUser
 from llm_provider.llm_initializer import get_llm_model
 from tools.code_pipeline import make_code_tool
@@ -33,6 +34,28 @@ LOOP_LIMIT_MESSAGE = (
     "I wasn't able to finish this request within the allowed number of tool calls. "
     "Try rephrasing it or breaking it into smaller steps."
 )
+
+
+# Provider errors meaning "this model can't call tools" (Ollama, OpenRouter, Groq, ...)
+_NO_TOOL_SUPPORT_MARKERS = (
+    "does not support tools",
+    "support tool use",
+    "tool use is not supported",
+    "tools are not supported",
+    "tool calling is not supported",
+    "does not support function calling",
+)
+
+
+def tools_unsupported(error: Exception) -> bool:
+    text = str(error).lower()
+    return any(marker in text for marker in _NO_TOOL_SUPPORT_MARKERS)
+
+
+def _tool_error_message(error: Exception) -> str:
+    """A failing tool becomes a message the model can react to, instead of aborting the run."""
+    logger.warning("Tool call failed: %s", error, exc_info=True)
+    return f"The tool failed: {friendly_llm_error(error)}. Answer without it, or tell the user what went wrong."
 
 
 class AgentState(TypedDict):
@@ -66,12 +89,14 @@ def build_tools(user: CurrentUser, llm: LLMSelection, agent_mode: bool) -> list:
 def build_graph(tools: list, llm: LLMSelection):
     model = get_llm_model(provider=llm.provider, model=llm.model, api_key=llm.api_key,
                           temperature=0.7, max_tokens=2048)
-    try:
-        model_with_tools = model.bind_tools(tools)
-    except NotImplementedError:
-        # Some local models (e.g. older Ollama integrations) don't support tool calling
-        logger.info("Model does not support tool calling; running without tools")
-        model_with_tools, tools = model, []
+    model_with_tools = model
+    if tools:
+        try:
+            model_with_tools = model.bind_tools(tools)
+        except NotImplementedError:
+            # Some local models (e.g. older Ollama integrations) don't support tool calling
+            logger.info("Model does not support tool calling; running without tools")
+            tools = []
 
     def agent(state: AgentState):
         return {"messages": [model_with_tools.invoke(state["messages"])]}
@@ -84,7 +109,7 @@ def build_graph(tools: list, llm: LLMSelection):
     graph.add_node("agent", agent)
     graph.add_edge(START, "agent")
     if tools:
-        graph.add_node("tools", ToolNode(tools))
+        graph.add_node("tools", ToolNode(tools, handle_tool_errors=_tool_error_message))
         graph.add_conditional_edges("agent", should_continue)
         graph.add_edge("tools", "agent")
     else:
@@ -113,16 +138,49 @@ def run_orchestrator(
     agent_mode: bool = False,
     system_prompt: Optional[str] = None,
 ) -> str:
-    app = build_graph(build_tools(user, llm, agent_mode), llm)
+    tools = build_tools(user, llm, agent_mode)
+    messages = build_messages(user_message, context, system_prompt)
     with track_llm_call("orchestrator", llm.provider):
         try:
-            result = app.invoke(
-                {"messages": build_messages(user_message, context, system_prompt)},
-                config={"recursion_limit": RECURSION_LIMIT},
-            )
+            try:
+                result = build_graph(tools, llm).invoke({"messages": messages},
+                                                        config={"recursion_limit": RECURSION_LIMIT})
+            except Exception as e:
+                if not (tools and tools_unsupported(e)):
+                    raise
+                logger.info("Model rejected tool calling (%s); answering without tools", e)
+                result = build_graph([], llm).invoke({"messages": messages},
+                                                     config={"recursion_limit": RECURSION_LIMIT})
         except GraphRecursionError:
             return LOOP_LIMIT_MESSAGE
     return message_text(result["messages"][-1].content)
+
+
+def _stream_graph(app, messages: list) -> Iterator[dict]:
+    """Translates LangGraph's stream into Pluto events; the final answer is a `final` event."""
+    for mode, payload in app.stream(
+        {"messages": messages},
+        config={"recursion_limit": RECURSION_LIMIT},
+        stream_mode=["messages", "updates"],
+    ):
+        if mode == "messages":
+            chunk, metadata = payload
+            if metadata.get("langgraph_node") == "agent" and isinstance(chunk, (AIMessageChunk, AIMessage)):
+                text = message_text(chunk.content)
+                if text:
+                    yield {"type": "token", "content": text}
+        elif mode == "updates":
+            for node, update in (payload or {}).items():
+                node_messages = (update or {}).get("messages", [])
+                if node == "agent" and node_messages:
+                    last = node_messages[-1]
+                    if getattr(last, "tool_calls", None):
+                        yield {"type": "tool_start", "tools": [c["name"] for c in last.tool_calls]}
+                    else:
+                        yield {"type": "final", "content": message_text(last.content)}
+                elif node == "tools":
+                    names = [m.name for m in node_messages if isinstance(m, ToolMessage)]
+                    yield {"type": "tool_end", "tools": names}
 
 
 def stream_orchestrator(
@@ -140,33 +198,29 @@ def stream_orchestrator(
       {"type": "tool_end", "tools": [str]}     -- tool results returned
       {"type": "done", "content": str}         -- the complete final answer
     """
-    app = build_graph(build_tools(user, llm, agent_mode), llm)
+    tools = build_tools(user, llm, agent_mode)
+    messages = build_messages(user_message, context, system_prompt)
     final_text = ""
     with track_llm_call("orchestrator_stream", llm.provider):
         try:
-            for mode, payload in app.stream(
-                {"messages": build_messages(user_message, context, system_prompt)},
-                config={"recursion_limit": RECURSION_LIMIT},
-                stream_mode=["messages", "updates"],
-            ):
-                if mode == "messages":
-                    chunk, metadata = payload
-                    if metadata.get("langgraph_node") == "agent" and isinstance(chunk, (AIMessageChunk, AIMessage)):
-                        text = message_text(chunk.content)
-                        if text:
-                            yield {"type": "token", "content": text}
-                elif mode == "updates":
-                    for node, update in (payload or {}).items():
-                        messages = (update or {}).get("messages", [])
-                        if node == "agent" and messages:
-                            last = messages[-1]
-                            if getattr(last, "tool_calls", None):
-                                yield {"type": "tool_start", "tools": [c["name"] for c in last.tool_calls]}
-                            else:
-                                final_text = message_text(last.content)
-                        elif node == "tools":
-                            names = [m.name for m in messages if isinstance(m, ToolMessage)]
-                            yield {"type": "tool_end", "tools": names}
+            emitted = False
+            try:
+                for event in _stream_graph(build_graph(tools, llm), messages):
+                    if event["type"] == "final":
+                        final_text = event["content"]
+                    else:
+                        emitted = True
+                        yield event
+            except Exception as e:
+                # Retry without tools only if nothing reached the client yet
+                if emitted or not (tools and tools_unsupported(e)):
+                    raise
+                logger.info("Model rejected tool calling (%s); answering without tools", e)
+                for event in _stream_graph(build_graph([], llm), messages):
+                    if event["type"] == "final":
+                        final_text = event["content"]
+                    else:
+                        yield event
         except GraphRecursionError:
             final_text = LOOP_LIMIT_MESSAGE
     yield {"type": "done", "content": final_text}

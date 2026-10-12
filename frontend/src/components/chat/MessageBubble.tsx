@@ -18,10 +18,10 @@ export const MessageBubble = ({ message }: { message: ChatMessage }) => {
       <div className={`max-w-[75%] flex flex-col gap-2`}>
         {/* Card Bubble */}
         <div
-          className={`rounded-2xl px-5 py-3.5 backdrop-blur-md border text-sm leading-relaxed ${
+          className={`rounded-3xl px-5 py-3.5 backdrop-blur-md border text-sm leading-relaxed ${
             isUser
-              ? 'bg-gradient-to-tr from-beige-150 to-beige-200/50 dark:from-stone-800 dark:to-stone-800/80 border-beige-200/60 dark:border-stone-700 text-stone-900 dark:text-stone-100 shadow-[0_4px_16px_rgba(168,152,120,0.06)] rounded-tr-none'
-              : 'bg-white/90 dark:bg-stone-900/90 border-stone-200/60 dark:border-stone-700 text-stone-800 dark:text-stone-200 rounded-tl-none shadow-[0_4px_24px_rgba(0,0,0,0.04)]'
+              ? 'bg-beige-400/[0.14] border-beige-300/25 text-white rounded-tr-md shadow-[0_8px_30px_-12px_rgba(124,182,234,0.5)]'
+              : 'bg-black/40 border-white/[0.08] text-stone-100 rounded-tl-md'
           }`}
         >
           {streaming && !content ? (

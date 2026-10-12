@@ -181,7 +181,7 @@ export const RAGPanel = () => {
               <button
                 type="submit"
                 disabled={!query.trim() || isLoading}
-                className="absolute right-2.5 p-2 rounded-lg bg-beige-500 hover:bg-beige-400 text-white disabled:opacity-50 transition-all shadow-[0_2px_8px_rgba(168,152,120,0.2)] cursor-pointer"
+                className="absolute right-2.5 p-2 rounded-lg bg-beige-500 hover:bg-beige-400 text-white disabled:opacity-50 transition-all shadow-[0_2px_8px_rgba(124,182,234,0.2)] cursor-pointer"
               >
                 {isLoading ? <Sparkles className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
               </button>

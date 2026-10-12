@@ -62,7 +62,7 @@ export const EdgeBeam = ({ start, end, isActive = false }) => {
       {/* @ts-expect-error R3F's three.js <line> collides with the SVG <line> JSX type */}
       <line ref={lineRef} geometry={lineGeometry}>
         <lineBasicMaterial 
-          color={isActive ? "#d97706" : "#d6d3d1"} 
+          color={isActive ? "#7cb6ea" : "#3f485b"} 
           linewidth={1} 
           transparent 
           opacity={isActive ? 0.6 : 0.3} 
@@ -73,7 +73,7 @@ export const EdgeBeam = ({ start, end, isActive = false }) => {
       <mesh ref={beamRef}>
         <sphereGeometry args={[isActive ? 0.12 : 0.07, 8, 8]} />
         <meshBasicMaterial 
-          color={isActive ? "#b45309" : "#d97706"} 
+          color={isActive ? "#a3cdf2" : "#7cb6ea"} 
           toneMapped={false}
           transparent
           opacity={isActive ? 0.9 : 0.6}

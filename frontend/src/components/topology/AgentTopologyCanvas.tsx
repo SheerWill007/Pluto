@@ -1,9 +1,7 @@
-import React, { useEffect, useMemo, useRef } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { useMemo } from 'react';
+import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
-import * as THREE from 'three';
 import { useAgentStore, type Layout } from '../../store/useAgentStore';
-import { useThemeStore } from '../../store/useThemeStore';
 import NodeCard from './NodeCard';
 import EdgeBeam from './EdgeBeam';
 import GlassCard from '../ui/GlassCard';
@@ -37,79 +35,6 @@ const CONNECTIONS = [
   
   { from: 'gmail_agent', to: 'ai_apis' },
 ];
-
-// WebGL Liquid Shader Background
-const BackgroundShader = () => {
-  const meshRef = useRef<THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>>(null);
-  const { theme } = useThemeStore();
-
-  const uniforms = useMemo(() => ({
-    u_time: { value: 0 },
-    u_mouse: { value: new THREE.Vector2(0.5, 0.5) },
-    u_isDark: { value: theme === 'dark' ? 1.0 : 0.0 }
-  }), [theme]);
-
-  useEffect(() => {
-    if (meshRef.current?.material?.uniforms?.u_isDark) {
-      meshRef.current.material.uniforms.u_isDark.value = theme === 'dark' ? 1.0 : 0.0;
-    }
-  }, [theme]);
-
-  useFrame((state) => {
-    if (!meshRef.current) return;
-    const time = state.clock.getElapsedTime();
-    meshRef.current.material.uniforms.u_time.value = time;
-
-    const mx = state.pointer.x * 0.5 + 0.5;
-    const my = state.pointer.y * 0.5 + 0.5;
-    meshRef.current.material.uniforms.u_mouse.value.lerp(new THREE.Vector2(mx, my), 0.05);
-  });
-
-  return (
-    <mesh ref={meshRef} position={[0, 0, -5]}>
-      <planeGeometry args={[30, 20]} />
-      <shaderMaterial
-        depthWrite={false}
-        depthTest={false}
-        uniforms={uniforms}
-        vertexShader={`
-          varying vec2 vUv;
-          void main() {
-            vUv = uv;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          }
-        `}
-        fragmentShader={`
-          uniform float u_time;
-          uniform vec2 u_mouse;
-          uniform float u_isDark;
-          varying vec2 vUv;
-
-          void main() {
-            vec3 ivory = mix(vec3(0.99, 0.985, 0.97), vec3(0.11, 0.10, 0.09), u_isDark);
-            vec3 beige = mix(vec3(0.965, 0.945, 0.915), vec3(0.15, 0.14, 0.13), u_isDark);
-            vec3 sand = mix(vec3(0.935, 0.905, 0.865), vec3(0.19, 0.17, 0.15), u_isDark);
-            vec3 gold = mix(vec3(0.915, 0.875, 0.825), vec3(0.23, 0.20, 0.17), u_isDark);
-
-            vec2 uv = vUv;
-
-            float wave1 = sin(uv.x * 4.0 + u_time * 0.2) * cos(uv.y * 4.0 + u_time * 0.15) * 0.5 + 0.5;
-            float wave2 = sin(uv.y * 5.0 - u_time * 0.12) * cos(uv.x * 3.0 + u_time * 0.25) * 0.5 + 0.5;
-            float blend = (wave1 + wave2) * 0.5;
-
-            float dist = length(uv - u_mouse);
-            float ripple = sin(dist * 35.0 - u_time * 2.5) * 0.012 * smoothstep(0.4, 0.0, dist);
-
-            vec3 baseColor = mix(ivory, beige, uv.y + blend * 0.2 + ripple);
-            vec3 finalColor = mix(baseColor, mix(sand, gold, blend), wave1 * 0.15 * (1.0 - dist * 0.5));
-
-            gl_FragColor = vec4(finalColor, 1.0);
-          }
-        `}
-      />
-    </mesh>
-  );
-};
 
 export const AgentTopologyCanvas = ({ onClose }) => {
   const { activeLayout, setActiveLayout, agentStates, activeNodes, customPositions, isDraggingNode } = useAgentStore();
@@ -191,7 +116,7 @@ export const AgentTopologyCanvas = ({ onClose }) => {
   };
 
   return (
-    <div className="relative w-full h-full flex flex-col overflow-hidden bg-stone-50 dark:bg-stone-950">
+    <div className="relative w-full h-full flex flex-col overflow-hidden">
       
       {/* Control Tabs */}
       <div className="absolute top-4 left-4 z-10 flex gap-2">
@@ -205,7 +130,7 @@ export const AgentTopologyCanvas = ({ onClose }) => {
               onClick={() => setActiveLayout(mode.id as Layout)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-semibold transition-all duration-300 backdrop-blur-md cursor-pointer ${
                 isActive
-                  ? 'bg-beige-150 dark:bg-stone-800 border-beige-200 dark:border-stone-700 text-beige-700 dark:text-stone-200 shadow-[0_2px_8px_rgba(168,152,120,0.08)]'
+                  ? 'bg-beige-150 dark:bg-stone-800 border-beige-200 dark:border-stone-700 text-beige-700 dark:text-stone-200 shadow-[0_2px_8px_rgba(124,182,234,0.08)]'
                   : 'bg-white/40 dark:bg-stone-900/40 border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 hover:bg-stone-100/50 dark:hover:bg-stone-800/50'
               }`}
             >
@@ -223,7 +148,7 @@ export const AgentTopologyCanvas = ({ onClose }) => {
           className="absolute top-4 right-4 z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-stone-200 dark:border-stone-700 bg-white/70 dark:bg-stone-900/70 text-stone-500 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 hover:bg-stone-100 dark:hover:bg-stone-800 transition-all duration-300 backdrop-blur-md text-[11px] font-semibold cursor-pointer"
         >
           <EyeOff className="h-3.5 w-3.5" />
-          <span>Hide Map</span>
+          <span>Back to chat</span>
         </button>
       )}
 
@@ -232,8 +157,6 @@ export const AgentTopologyCanvas = ({ onClose }) => {
         <Canvas camera={{ position: [0, 0, 6.5], fov: 70 }}>
           <ambientLight intensity={1.6} />
           <pointLight position={[10, 10, 10]} intensity={1.8} />
-
-          <BackgroundShader />
 
           {/* Node Render */}
           {NODES_LIST.map((node) => {
@@ -299,7 +222,7 @@ export const AgentTopologyCanvas = ({ onClose }) => {
               <span>Gmail monitoring: <b className="text-beige-600 dark:text-beige-400 capitalize">{agentStates.gmail_agent?.status}</b></span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="h-2 w-2 rounded-full bg-amber-500 shadow-[0_0_6px_rgba(217,119,6,0.4)]" />
+              <div className="h-2 w-2 rounded-full bg-amber-500 shadow-[0_0_6px_rgba(51,163,221,0.4)]" />
               <span>Coding logic: <b className="text-amber-600 dark:text-amber-400 capitalize">connected</b></span>
             </div>
           </div>

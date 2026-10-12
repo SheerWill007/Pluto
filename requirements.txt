@@ -24,7 +24,8 @@ langchain-anthropic>=1.4.6,<2
 langchain-google-genai>=4.0,<5
 langchain-ollama>=1.0,<2
 langgraph>=1.0.10,<2
-duckduckgo-search>=6.0,<9
+# Web search: langchain-community 0.4 imports `ddgs` (the renamed duckduckgo-search)
+ddgs>=9.5,<10
 
 # Vector DB -- 0.5.x is kept for on-disk compatibility with existing collections.
 # Upgrading to chromadb 1.x requires re-ingesting documents (see SECURITY.md).

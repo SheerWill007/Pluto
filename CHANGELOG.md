@@ -1,5 +1,36 @@
 # Changelog
 
+## 2.1.0
+
+### Frontend redesign
+- New deep-space interface: a WebGL vortex whose glowing core travels on a circular orbit
+  while the streaks swirl around it; scroll velocity spins it faster.
+- Lenis smooth scrolling with scroll-driven effects on the landing page: the hero card opens
+  into the vortex as you scroll, parallax agent cards, a word-by-word manifesto reveal, a
+  scroll-drawn workflow line, and a velocity-skewed marquee.
+- Floating pill navigation, serif display type, and one dark theme across the landing page and
+  dashboard. The topology map is now its own tab (`/topology`).
+- The landing page renders at `/` directly, so the Google redirect sign-in keeps its
+  `?code=` callback parameters (they were lost to a redirect before).
+- Dashboard panels adapt to phone widths.
+
+### Agent fixes
+- **Web search never worked**: `langchain-community` 0.4 imports the renamed `ddgs` package,
+  but `duckduckgo-search` was installed. Requirements now use `ddgs`.
+- **A failing tool aborted the whole answer** (e.g. a rate-limited code pipeline). Tool errors
+  are now returned to the model, which explains or works around them.
+- **Models without tool calling failed outright** (Ollama `llama3`, some OpenRouter models).
+  The orchestrator now retries as plain chat.
+- **Ollama chat bypassed the backend**, so it never reached the agents. It now uses the same
+  orchestrator as every other provider.
+- **The coding workspace ignored the selected provider** and always called OpenAI with retired
+  model names. It now follows the control bar.
+- Model names resolve through one table (`config/models.py`); previously two conflicting tables
+  could rewrite valid Gemini names to models that don't exist (`gemini-3.6-flash`).
+- A server base URL (e.g. Groq's) is no longer reused when a request picks another provider.
+- Ollama health is probed even when the server's default provider is a cloud one.
+- Retrieval relevance scores are clamped to [0, 1].
+
 ## 2.0.0
 
 ### Security
