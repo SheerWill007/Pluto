@@ -10,7 +10,7 @@ import {
   useVelocity,
   type MotionValue,
 } from 'framer-motion';
-import { ArrowUpRight, BookOpen, Bot, Code2, Globe, Mail, ShieldCheck } from 'lucide-react';
+import { ArrowUpRight, BookOpen, Bot, Code2, Globe, Mail, ShieldCheck, Github, Linkedin, ExternalLink } from 'lucide-react';
 import VortexCanvas from '../components/cosmos/VortexCanvas';
 import PillNav from '../components/cosmos/PillNav';
 import CursorDot from '../components/cosmos/CursorDot';
@@ -497,8 +497,40 @@ export function Landing() {
           <Manifesto />
           <WorkflowSection />
           <AccessSection />
-          <footer className="flex flex-col items-center justify-between gap-4 border-t border-white/[0.06] px-6 py-10 text-xs text-white/35 sm:flex-row sm:px-10 lg:px-20">
+          <footer className="flex flex-col items-center justify-between gap-6 border-t border-white/[0.06] px-6 py-10 text-xs text-white/35 sm:px-10 lg:px-20">
             <span className="font-display text-xl italic text-white/70">Pluto</span>
+            
+            {/* Social Media Icons */}
+            <div className="flex items-center gap-6">
+              <a
+                href="https://github.com/SheerWill007/Pluto"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group flex items-center gap-2 transition-colors hover:text-white/70"
+                aria-label="GitHub Repository"
+              >
+                <Github className="h-5 w-5 transition-transform group-hover:scale-110" />
+              </a>
+              <a
+                href="https://willx.tech/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group flex items-center gap-2 transition-colors hover:text-white/70"
+                aria-label="Portfolio"
+              >
+                <ExternalLink className="h-5 w-5 transition-transform group-hover:scale-110" />
+              </a>
+              <a
+                href="https://www.linkedin.com/in/willxtech"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group flex items-center gap-2 transition-colors hover:text-white/70"
+                aria-label="LinkedIn Profile"
+              >
+                <Linkedin className="h-5 w-5 transition-transform group-hover:scale-110" />
+              </a>
+            </div>
+
             <span>Multi-agent workspace · © {new Date().getFullYear()}</span>
           </footer>
         </div>
