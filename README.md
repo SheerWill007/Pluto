@@ -1,100 +1,112 @@
-# 🪐 Pluto - Multi-Agent AI Workspace
+# Pluto: Multi-Agent AI Workspace
 
 <p align="center">
-	<img src="frontend/public/pluto.png" alt="Pluto" width="200" />
+  <img src="frontend/public/pluto.png" alt="Pluto" width="200" />
 </p>
 
 <p align="center">
-  <strong>An intelligent orchestrator that brings together web search, document intelligence, Gmail triage, and code generation in one unified workspace.</strong>
+  <strong>A multi-agent orchestrator that unifies web search, document intelligence, Gmail triage, and code generation in a single workspace.</strong>
 </p>
 
 <p align="center">
-  <a href="#-overview">Overview</a> •
-  <a href="#-key-features">Features</a> •
-  <a href="#-architecture">Architecture</a> •
-  <a href="#-quick-start">Quick Start</a> •
-  <a href="#-api-reference">API</a> •
-  <a href="#-project-structure">Structure</a>
+  <a href="https://github.com/SheerWill007">GitHub</a> |
+  <a href="https://willx.tech/">Portfolio</a> |
+  <a href="https://www.linkedin.com/in/willxtech">LinkedIn</a>
+</p>
+
+<p align="center">
+  <a href="#overview">Overview</a> |
+  <a href="#key-features">Features</a> |
+  <a href="#architecture">Architecture</a> |
+  <a href="#quick-start">Quick Start</a> |
+  <a href="#configuration">Configuration</a> |
+  <a href="#api-reference">API</a> |
+  <a href="#project-structure">Structure</a>
 </p>
 
 ---
 
-## 📖 Overview
+## Overview
 
-**Pluto** is a production-ready, multi-agent AI workspace built on **LangGraph** that orchestrates intelligent conversations with streaming responses. It dynamically decides when to invoke specialized tools based on user queries, providing a seamless experience across multiple AI capabilities.
+Pluto is a production-ready, multi-agent AI workspace built on LangGraph. It orchestrates conversations with streaming responses and dynamically decides which specialized agents and tools to invoke based on the user's query.
 
-### What Makes Pluto Special?
+### Design Principles
 
-Pluto isn't just another chatbot—it's a sophisticated multi-agent system that:
-
-- **Thinks Before Acting**: Uses LangGraph to build a dynamic execution graph, deciding which agents and tools to invoke based on context
-- **Streams Everything**: Real-time token streaming over Server-Sent Events (SSE) with live topology visualization
-- **Brings Your Own Model**: Works with Google Gemini, OpenAI, Anthropic Claude, Groq, OpenRouter, or local Ollama models
-- **Maintains Context**: Per-user isolation ensures your conversations, documents, and Gmail data stay private
-- **Ships Production-Ready**: Enterprise-grade security, observability, and deployment infrastructure out of the box
+- **Deliberate routing.** LangGraph builds an execution graph at runtime, selecting agents and tools based on context.
+- **Streaming by default.** Tokens are delivered in real time over Server-Sent Events (SSE), alongside a live topology view of agent activity.
+- **Provider-agnostic.** Works with Google Gemini, OpenAI, Anthropic Claude, Groq, OpenRouter, or local Ollama models.
+- **Per-user isolation.** Conversations, documents, and Gmail data are scoped to the authenticated user.
+- **Production posture.** Security controls, observability, and deployment tooling are included from the start.
 
 ### Use Cases
 
-- **Research Assistant**: Search the web, analyze documents, and synthesize information
-- **Code Companion**: Generate code with automatic review and quality checks
-- **Inbox Manager**: Triage Gmail, summarize threads, and surface action items
-- **Knowledge Base**: Query your personal document collection with cited sources
+- **Research assistant:** search the web, analyze documents, and synthesize findings.
+- **Code companion:** generate code with automated review and quality checks.
+- **Inbox management:** triage Gmail, summarize threads, and surface action items.
+- **Knowledge base:** query a personal document collection with cited sources.
 
 ---
 
-## ✨ Key Features
+## Key Features
 
-### 🎯 Core Capabilities
+### Streaming Agent Chat
 
-#### 1. **Streaming Agent Chat**
-- **Real-time Response Generation**: Tokens stream over Server-Sent Events as the model thinks
-- **Live Topology Map**: Visual representation of which tools and agents are being invoked
-- **Interactive Experience**: See the AI's decision-making process in real-time
+- Real-time token streaming over Server-Sent Events.
+- Live topology map showing which agents and tools are being invoked.
+- Visibility into the system's decision-making as a response is produced.
 
-#### 2. **Multi-Agent System**
-- **Orchestrator**: Central brain that routes requests to specialized agents
-- **Web Research Agent**: Live DuckDuckGo search for current information
-- **RAG Agent**: Document ingestion and retrieval with source citations
-- **Gmail Agent**: Inbox analysis, thread summarization, and spam detection
-- **Code Generator**: Context-aware code generation
-- **Code Critic**: Automated code review with security and correctness checks
+### Multi-Agent System
 
-#### 3. **Universal LLM Support**
-Work with any major provider through a unified interface:
+| Agent | Role |
+|---|---|
+| Orchestrator | Central router that dispatches requests to specialized agents |
+| Web Research Agent | Live DuckDuckGo search for current information |
+| RAG Agent | Document ingestion and retrieval with source citations |
+| Gmail Agent | Inbox analysis, thread summarization, and spam detection |
+| Code Generator | Context-aware code generation |
+| Code Critic | Automated review for security and correctness |
+
+### Universal LLM Support
+
+A unified interface covers the major providers:
+
 - **Google Gemini** (gemini-pro, gemini-1.5-pro)
 - **OpenAI** (GPT-4, GPT-3.5-turbo)
 - **Anthropic** (Claude 3 Opus, Sonnet, Haiku)
-- **Groq** (Fast inference with Llama, Mixtral)
-- **OpenRouter** (Access to 100+ models)
-- **Ollama** (Local models for privacy)
+- **Groq** (fast inference with Llama and Mixtral)
+- **OpenRouter** (access to 100+ models)
+- **Ollama** (local models for privacy)
 
-#### 4. **Enterprise-Grade Security**
-- ✅ **Verified Google Sign-In** with strict token validation
-- ✅ **JWT Authentication** with secure signing and expiration
-- ✅ **PBKDF2 Password Hashing** (600,000 iterations) with automatic upgrades
-- ✅ **Encrypted OAuth Tokens** at rest using Fernet symmetric encryption
-- ✅ **CSRF Protection** on all state-changing operations
-- ✅ **Rate Limiting** per-client request budgets
-- ✅ **Strict CORS** with no wildcard origins
-- ✅ **Security Headers** (HSTS, CSP, X-Frame-Options)
-- ✅ **Audit Logging** for all authentication and data events
+### Security
 
-#### 5. **Per-User Isolation**
-- **Private Conversations**: Chat history scoped to authenticated users
-- **Personal Document Collections**: RAG vectors tagged by owner
-- **Isolated Gmail Access**: OAuth tokens encrypted and user-specific
-- **Secure Fact Storage**: Long-term memory isolated per account
+- Verified Google Sign-In with strict token validation
+- JWT authentication with secure signing and expiration
+- PBKDF2 password hashing (600,000 iterations) with automatic upgrades
+- OAuth tokens encrypted at rest using Fernet symmetric encryption
+- CSRF protection on all state-changing operations
+- Per-client rate limiting
+- Strict CORS with no wildcard origins
+- Security headers (HSTS, CSP, X-Frame-Options)
+- Audit logging for authentication and data events
 
-#### 6. **Production Observability**
-- 📊 **Structured JSON Logging** with request IDs for distributed tracing
-- 📈 **Prometheus Metrics** for HTTP requests, LLM calls, and system health
-- 🏥 **Health Probes** (liveness and readiness) for Kubernetes/Docker
-- 📝 **Audit Trail** for compliance and security monitoring
-- ⚡ **Graceful Degradation** when dependencies are unavailable
+### Per-User Isolation
+
+- **Conversations:** chat history is scoped to the authenticated user.
+- **Documents:** RAG vectors are tagged by owner.
+- **Gmail:** OAuth tokens are encrypted and user-specific.
+- **Long-term memory:** stored facts are isolated per account.
+
+### Observability
+
+- Structured JSON logging with request IDs for distributed tracing
+- Prometheus metrics for HTTP requests, LLM calls, and system health
+- Liveness and readiness probes for Kubernetes and Docker
+- Audit trail for compliance and security monitoring
+- Graceful degradation when dependencies are unavailable
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ### System Overview
 
@@ -124,17 +136,17 @@ graph TD
     C -->|Document Query| F[RAG Agent]
     C -->|Email Task| G[Gmail Agent]
     C -->|Simple Query| H[Direct Response]
-    
+
     E --> I[Code Critic]
     I -->|Approved| J[Return Code]
     I -->|Issues Found| E
-    
+
     D --> K[Merge Results]
     F --> K
     G --> K
     H --> K
     J --> K
-    
+
     K --> L[Stream to User]
 ```
 
@@ -142,101 +154,99 @@ graph TD
 
 | Layer | Location | Responsibility |
 |---|---|---|
-| **Entry Point** | `app.py` | App factory, lifespan management (config validation, migrations), middleware stack |
-| **HTTP API** | `api/v1/` | Domain-specific routers; thin controllers with validation and authentication |
-| **Cross-Cutting** | `core/` | Logging, error handling, security (JWT/passwords), rate limits, metrics, crypto |
-| **Agents** | `agents/` | LangGraph orchestrator, specialized agents (RAG, Gmail, code generation/review) |
-| **Tools** | `tools/` | Per-request tool factories bound to the calling user for isolation |
-| **Data Layer** | `memory/`, `rag/` | PostgreSQL (pooled, migrated), Redis, ChromaDB with abstractions |
-| **LLM Abstraction** | `llm_provider/` | Provider-agnostic model construction and configuration |
-| **Frontend** | `frontend/src/` | Typed API client, state management (Zustand), UI components |
+| Entry point | `app.py` | App factory, lifespan management (config validation, migrations), middleware stack |
+| HTTP API | `api/v1/` | Domain-specific routers; thin controllers handling validation and authentication |
+| Cross-cutting | `core/` | Logging, error handling, security (JWT and passwords), rate limits, metrics, crypto |
+| Agents | `agents/` | LangGraph orchestrator and specialized agents (RAG, Gmail, code generation and review) |
+| Tools | `tools/` | Per-request tool factories bound to the calling user for isolation |
+| Data layer | `memory/`, `rag/` | PostgreSQL (pooled, migrated), Redis, and ChromaDB behind abstractions |
+| LLM abstraction | `llm_provider/` | Provider-agnostic model construction and configuration |
+| Frontend | `frontend/src/` | Typed API client, state management (Zustand), and UI components |
 
 ### Technology Stack
 
 **Backend**
-- **Framework**: FastAPI (async Python web framework)
-- **Agent Framework**: LangGraph (stateful agent orchestration)
-- **LLM Integration**: LangChain (unified LLM interface)
-- **Databases**: PostgreSQL (relational), Redis (cache/memory), ChromaDB (vectors)
-- **Authentication**: JWT + OAuth 2.0 (Google)
-- **API Documentation**: OpenAPI/Swagger (auto-generated)
+
+- Framework: FastAPI (async Python)
+- Agent framework: LangGraph (stateful agent orchestration)
+- LLM integration: LangChain (unified model interface)
+- Data stores: PostgreSQL (relational), Redis (cache and memory), ChromaDB (vectors)
+- Authentication: JWT and OAuth 2.0 (Google)
+- API documentation: OpenAPI/Swagger (auto-generated)
 
 **Frontend**
-- **Framework**: React 18 with TypeScript
-- **Build Tool**: Vite (fast bundling and HMR)
-- **State Management**: Zustand (lightweight state)
-- **Styling**: Tailwind CSS + Framer Motion (animations)
-- **HTTP Client**: Axios with interceptors
-- **Icons**: Lucide React
+
+- Framework: React 18 with TypeScript
+- Build tool: Vite
+- State management: Zustand
+- Styling: Tailwind CSS and Framer Motion
+- HTTP client: Axios with interceptors
+- Icons: Lucide React
 
 **Infrastructure**
-- **Containerization**: Docker with multi-stage builds
-- **Orchestration**: Docker Compose (development) / Kubernetes-ready
-- **Reverse Proxy**: nginx (static files + API proxy)
-- **CI/CD**: GitHub Actions (lint, test, build, security audit)
-- **Monitoring**: Prometheus-compatible metrics
+
+- Containerization: Docker with multi-stage builds
+- Orchestration: Docker Compose (development), Kubernetes-ready
+- Reverse proxy: nginx (static files and API proxy)
+- CI/CD: GitHub Actions (lint, test, build, security audit)
+- Monitoring: Prometheus-compatible metrics
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Option 1: Docker (Recommended)
-
-Get up and running in under 2 minutes:
 
 ```bash
 # 1. Clone the repository
 git clone https://github.com/SheerWill007/Pluto.git
-cd pluto
+cd Pluto
 
 # 2. Create environment configuration
 cp .env.example .env
 
 # 3. Generate required secrets
-# On Linux/Mac:
-openssl rand -hex 32  # Use for JWT_SECRET_KEY
-python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"  # TOKEN_ENCRYPTION_KEY
+# Linux / macOS:
+openssl rand -hex 32  # use for JWT_SECRET_KEY
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"  # use for TOKEN_ENCRYPTION_KEY
 
-# On Windows (PowerShell):
-# Use the generation commands in .env.example
+# Windows (PowerShell): see the generation commands in .env.example
 
-# 4. Edit .env and set at least:
-#    - JWT_SECRET_KEY (32+ chars)
+# 4. Edit .env and set at minimum:
+#    - JWT_SECRET_KEY (32+ characters)
 #    - TOKEN_ENCRYPTION_KEY (Fernet key)
 #    - POSTGRES_PASSWORD
 #    - One LLM provider key (OPENAI_API_KEY, ANTHROPIC_API_KEY, etc.)
 
-# 5. Start the entire stack
+# 5. Start the full stack
 docker compose up --build
 ```
 
-**Access the application**:
-- Frontend: http://localhost:8080
-- API Docs: http://localhost:8000/docs
-- Metrics: http://localhost:8000/metrics
+Once running:
 
-The stack includes:
-- ✅ nginx serving the React SPA
-- ✅ FastAPI backend
-- ✅ PostgreSQL database
-- ✅ Redis cache
-- ✅ Persistent data volumes
+| Service | URL |
+|---|---|
+| Frontend | http://localhost:8080 |
+| API documentation | http://localhost:8000/docs |
+| Metrics | http://localhost:8000/metrics |
+
+The stack includes nginx serving the React SPA, the FastAPI backend, PostgreSQL, Redis, and persistent data volumes.
 
 ### Option 2: Local Development
 
-**Requirements**: Python 3.11+, Node 22+, PostgreSQL (optional), Redis (optional)
+**Requirements:** Python 3.11+, Node 22+, PostgreSQL (optional), Redis (optional)
 
-#### Backend Setup
+#### Backend
 
 ```bash
-# 1. Create virtual environment
+# 1. Create a virtual environment
 python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
 # 2. Install dependencies
 pip install -r requirements-dev.txt
 
-# 3. Configure environment
+# 3. Configure the environment
 cp .env.example .env
 # Edit .env with your settings
 
@@ -244,103 +254,98 @@ cp .env.example .env
 python -m uvicorn app:app --reload
 ```
 
-API will be available at http://localhost:8000
+The API is served at http://localhost:8000.
 
-> **Note**: Without PostgreSQL and Redis, the API runs in **degraded mode**:
-> - No user accounts or Gmail integration
-> - In-memory chat history (lost on restart)
-> - Guest sessions still work for testing
+> **Note:** Without PostgreSQL and Redis, the API runs in degraded mode: user accounts and Gmail integration are unavailable, chat history is held in memory and lost on restart, and guest sessions remain available for testing.
 
-#### Frontend Setup
+#### Frontend
 
 ```bash
-# 1. Navigate to frontend
+# 1. Navigate to the frontend directory
 cd frontend
 
 # 2. Install dependencies
 npm ci  # or npm install
 
-# 3. Configure environment
+# 3. Configure the environment
 cp .env.example .env
-# Edit .env if needed (usually defaults work)
+# Edit .env if needed (defaults are usually sufficient)
 
-# 4. Start development server
+# 4. Start the development server
 npm run dev
 ```
 
-Frontend will be available at http://localhost:5173
+The frontend is served at http://localhost:5173.
 
-#### Quick Start Script
-
-Use the included helper scripts:
+#### Helper Scripts
 
 ```bash
-./start.sh   # Start both backend and frontend
+./start.sh   # Start backend and frontend
 ./status.sh  # Check service status
 ./stop.sh    # Stop all services
 ```
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 All configuration is managed through environment variables. See [`.env.example`](.env.example) for the complete, commented list.
 
-### Essential Variables
+### Core
 
 | Variable | Description | Required | Default |
-|----------|-------------|----------|---------|
+|---|---|---|---|
 | `ENVIRONMENT` | `development` or `production` | Yes | `development` |
-| `JWT_SECRET_KEY` | Secret for signing JWT tokens (32+ chars) | Yes in prod | - |
-| `TOKEN_ENCRYPTION_KEY` | Fernet key for encrypting OAuth tokens | Yes for Gmail | - |
+| `JWT_SECRET_KEY` | Secret for signing JWTs (32+ characters) | Production | None |
+| `TOKEN_ENCRYPTION_KEY` | Fernet key for encrypting OAuth tokens | Gmail | None |
 | `CORS_ORIGINS` | Comma-separated allowed origins | Yes | `http://localhost:5173` |
 
-### LLM Provider Configuration
+### LLM Providers
 
 | Variable | Description | Example |
-|----------|-------------|---------|
+|---|---|---|
 | `LLM_PROVIDER` | Provider name (auto-detected if blank) | `openai`, `anthropic`, `google` |
 | `LLM_MODEL` | Model identifier | `gpt-4`, `claude-3-opus-20240229` |
 | `OPENAI_API_KEY` | OpenAI API key | `sk-...` |
 | `ANTHROPIC_API_KEY` | Anthropic API key | `sk-ant-...` |
-| `GOOGLE_API_KEY` | Google AI API key | - |
-| `GROQ_API_KEY` | Groq API key | - |
-| `OPENROUTER_API_KEY` | OpenRouter API key | - |
+| `GOOGLE_API_KEY` | Google AI API key | |
+| `GROQ_API_KEY` | Groq API key | |
+| `OPENROUTER_API_KEY` | OpenRouter API key | |
 | `OLLAMA_BASE_URL` | Ollama server URL | `http://localhost:11434` |
 
-> **User Keys**: Users can provide their own API keys via the UI. These keys are sent per-request and **never stored** server-side.
+> **User-supplied keys:** Users can provide their own API keys through the UI. These keys are sent per request and are never stored server-side.
 
-### Database Configuration
+### Databases
 
 | Variable | Description | Default |
-|----------|-------------|---------|
+|---|---|---|
 | `POSTGRES_URL` | PostgreSQL connection string | `postgresql://pluto:password@localhost:5432/pluto` |
 | `REDIS_URL` | Redis connection string | `redis://localhost:6379/0` |
 
-### Security Configuration
+### Authentication and Rate Limiting
 
 | Variable | Description | Default |
-|----------|-------------|---------|
-| `GOOGLE_CLIENT_ID` | OAuth 2.0 client ID for "Sign in with Google" | - |
-| `GMAIL_WEB_CLIENT_ID` | Separate OAuth client for Gmail API access | - |
-| `GMAIL_WEB_CLIENT_SECRET` | Gmail OAuth client secret | - |
+|---|---|---|
+| `GOOGLE_CLIENT_ID` | OAuth 2.0 client ID for Google Sign-In | None |
+| `GMAIL_WEB_CLIENT_ID` | Separate OAuth client for Gmail API access | None |
+| `GMAIL_WEB_CLIENT_SECRET` | Gmail OAuth client secret | None |
 | `GMAIL_REDIRECT_URI` | OAuth callback URL | `http://localhost:8000/api/v1/gmail/connect` |
 | `RATE_LIMIT_PER_MINUTE` | General rate limit | `60` |
-| `AUTH_RATE_LIMIT_PER_MINUTE` | Auth endpoint rate limit | `10` |
+| `AUTH_RATE_LIMIT_PER_MINUTE` | Authentication endpoint rate limit | `10` |
 | `ALLOW_GUEST_ACCESS` | Enable anonymous sessions | `true` |
 
-### Observability Configuration
+### Observability
 
 | Variable | Description | Default |
-|----------|-------------|---------|
+|---|---|---|
 | `LOG_FORMAT` | `json` or `text` | `text` |
 | `LOG_LEVEL` | `DEBUG`, `INFO`, `WARNING`, `ERROR` | `INFO` |
 
 ---
 
-## 📡 API Reference
+## API Reference
 
-All endpoints are under `/api/v1`. Errors follow a consistent format:
+All endpoints are served under `/api/v1`. Errors follow a consistent format:
 
 ```json
 {
@@ -352,313 +357,251 @@ All endpoints are under `/api/v1`. Errors follow a consistent format:
 
 ### Authentication
 
-All endpoints (except system health checks and auth endpoints) require a JWT token:
+All endpoints, except system health checks and authentication endpoints, require a JWT:
 
 ```
 Authorization: Bearer <token>
 ```
 
-#### Endpoints
-
 | Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/auth/signup` | Create a new account with email/password |
-| `POST` | `/auth/login` | Login with email/password |
-| `POST` | `/auth/google` | Authenticate with Google OAuth token |
-| `POST` | `/auth/guest` | Create temporary anonymous session |
-| `GET` | `/auth/me` | Get current user profile |
+|---|---|---|
+| `POST` | `/auth/signup` | Create an account with email and password |
+| `POST` | `/auth/login` | Log in with email and password |
+| `POST` | `/auth/google` | Authenticate with a Google OAuth token |
+| `POST` | `/auth/guest` | Create a temporary anonymous session |
+| `GET` | `/auth/me` | Retrieve the current user profile |
 
-### System Endpoints
+### System
 
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|---------------|
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
 | `GET` | `/health` | Liveness probe | No |
-| `GET` | `/health/ready` | Readiness probe (checks DB) | No |
+| `GET` | `/health/ready` | Readiness probe (checks database) | No |
 | `GET` | `/config/llm` | Available LLM providers | No |
-| `GET` | `/config/auth` | Auth configuration | No |
+| `GET` | `/config/auth` | Authentication configuration | No |
 | `GET` | `/agents/status` | Agent health status | No |
 | `GET` | `/metrics` | Prometheus metrics | No |
 
-### Chat Endpoints
+### Chat
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/chat` | Send message, get complete response |
-| `POST` | `/chat/stream` | Send message, stream response via SSE |
+|---|---|---|
+| `POST` | `/chat` | Send a message and receive the complete response |
+| `POST` | `/chat/stream` | Send a message and stream the response via SSE |
 | `DELETE` | `/chat/{session_id}/history` | Clear conversation history |
 
-**Streaming Events** (`/chat/stream`):
-- `start`: Agent begins processing
-- `token`: Individual token from LLM
-- `tool_start`: Agent invokes a tool
-- `tool_end`: Tool returns result
-- `done`: Complete response with metadata
-- `error`: Error occurred during processing
+**Streaming events** (`/chat/stream`):
 
-### RAG (Document) Endpoints
+| Event | Meaning |
+|---|---|
+| `start` | The agent has begun processing |
+| `token` | A single token from the LLM |
+| `tool_start` | An agent has invoked a tool |
+| `tool_end` | A tool has returned a result |
+| `done` | Complete response with metadata |
+| `error` | An error occurred during processing |
+
+### Documents (RAG)
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
+|---|---|---|
 | `POST` | `/rag/ingest` | Upload and index documents |
-| `GET` | `/rag/documents` | List user's documents |
-| `DELETE` | `/rag/documents/{source}` | Delete specific document |
-| `DELETE` | `/rag/documents` | Delete all user documents |
-| `POST` | `/rag/query` | Query document collection |
+| `GET` | `/rag/documents` | List the user's documents |
+| `DELETE` | `/rag/documents/{source}` | Delete a specific document |
+| `DELETE` | `/rag/documents` | Delete all of the user's documents |
+| `POST` | `/rag/query` | Query the document collection |
 
-**Supported Formats**: PDF, DOCX, Markdown, CSV, TXT
+Supported formats: PDF, DOCX, Markdown, CSV, TXT.
 
-### Code Endpoints
+### Code
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/code/generate` | Generate code from description |
+|---|---|---|
+| `POST` | `/code/generate` | Generate code from a description |
 | `POST` | `/code/critic` | Review code for issues |
 
-### Gmail Endpoints
+### Gmail
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/gmail/connect` | OAuth flow to link Gmail |
+|---|---|---|
+| `GET` | `/gmail/connect` | Begin the OAuth flow to link Gmail |
 | `GET` | `/gmail/status` | Check Gmail connection status |
-| `POST` | `/gmail/disconnect` | Unlink Gmail account |
+| `POST` | `/gmail/disconnect` | Unlink the Gmail account |
 | `GET` | `/gmail/list` | List recent emails |
-| `GET` | `/gmail/get/{id}` | Get specific email |
-| `POST` | `/gmail/summarize` | Summarize inbox or thread |
+| `GET` | `/gmail/get/{id}` | Retrieve a specific email |
+| `POST` | `/gmail/summarize` | Summarize the inbox or a thread |
 
-> **Note**: Gmail features require a registered (non-guest) account and OAuth linking.
+> **Note:** Gmail features require a registered (non-guest) account and a completed OAuth link.
 
 ---
 
-## 📂 Project Structure
-
-### Complete Directory Tree
+## Project Structure
 
 ```
 pluto/
-│
-├── 📁 agents/                      # Multi-agent system implementation
-│   ├── orchestrator.py             # Main LangGraph orchestrator
-│   ├── research_agent.py           # Web search agent
-│   ├── rag_agent.py                # Document retrieval agent
-│   ├── gmail_agent.py              # Email triage agent
-│   ├── code_generator.py           # Code generation agent
-│   ├── code_critic.py              # Code review agent
-│   ├── common.py                   # Shared agent utilities
+├── agents/                     # Multi-agent system
+│   ├── orchestrator.py         # Main LangGraph orchestrator
+│   ├── research_agent.py       # Web search agent
+│   ├── rag_agent.py            # Document retrieval agent
+│   ├── gmail_agent.py          # Email triage agent
+│   ├── code_generator.py       # Code generation agent
+│   ├── code_critic.py          # Code review agent
+│   ├── common.py               # Shared agent utilities
 │   └── __init__.py
 │
-├── 📁 api/                         # FastAPI HTTP layer
-│   ├── deps.py                     # Dependency injection (auth, DB)
-│   ├── routes.py                   # Root router aggregator
-│   └── 📁 v1/                      # API version 1
-│       ├── auth.py                 # Authentication endpoints
-│       ├── chat.py                 # Chat and streaming endpoints
-│       ├── code.py                 # Code generation endpoints
-│       ├── gmail.py                # Gmail integration endpoints
-│       ├── rag.py                  # RAG/document endpoints
-│       └── system.py               # Health/config endpoints
+├── api/                        # FastAPI HTTP layer
+│   ├── deps.py                 # Dependency injection (auth, DB)
+│   ├── routes.py               # Root router aggregator
+│   └── v1/
+│       ├── auth.py             # Authentication endpoints
+│       ├── chat.py             # Chat and streaming endpoints
+│       ├── code.py             # Code generation endpoints
+│       ├── gmail.py            # Gmail integration endpoints
+│       ├── rag.py              # Document endpoints
+│       └── system.py           # Health and configuration endpoints
 │
-├── 📁 core/                        # Cross-cutting concerns
-│   ├── config.py                   # Environment-based configuration
-│   ├── logging.py                  # Structured logging setup
-│   ├── errors.py                   # Custom exceptions
-│   ├── security.py                 # JWT, password hashing, crypto
-│   ├── rate_limit.py               # Rate limiting middleware
-│   ├── metrics.py                  # Prometheus metrics
-│   └── middleware.py               # Request ID, headers, CORS
+├── core/                       # Cross-cutting concerns
+│   ├── config.py               # Environment-based configuration
+│   ├── logging.py              # Structured logging
+│   ├── errors.py               # Custom exceptions
+│   ├── security.py             # JWT, password hashing, crypto
+│   ├── rate_limit.py           # Rate limiting middleware
+│   ├── metrics.py              # Prometheus metrics
+│   └── middleware.py           # Request ID, headers, CORS
 │
-├── 📁 llm_provider/                # LLM provider abstraction
-│   ├── factory.py                  # Provider factory
-│   ├── openai_provider.py          # OpenAI integration
-│   ├── anthropic_provider.py       # Anthropic/Claude integration
-│   ├── google_provider.py          # Google Gemini integration
-│   ├── groq_provider.py            # Groq integration
-│   ├── openrouter_provider.py      # OpenRouter integration
-│   ├── ollama_provider.py          # Ollama local models
-│   └── base.py                     # Base provider interface
+├── llm_provider/               # LLM provider abstraction
+│   ├── factory.py              # Provider factory
+│   ├── base.py                 # Base provider interface
+│   ├── openai_provider.py
+│   ├── anthropic_provider.py
+│   ├── google_provider.py
+│   ├── groq_provider.py
+│   ├── openrouter_provider.py
+│   └── ollama_provider.py
 │
-├── 📁 memory/                      # Data persistence layer
-│   ├── postgres.py                 # PostgreSQL connection and queries
-│   ├── redis_client.py             # Redis connection and operations
-│   ├── chat_memory.py              # Conversation history management
-│   ├── user_memory.py              # User facts/preferences storage
-│   └── migrations/                 # Database schema migrations
+├── memory/                     # Data persistence layer
+│   ├── postgres.py             # PostgreSQL connection and queries
+│   ├── redis_client.py         # Redis connection and operations
+│   ├── chat_memory.py          # Conversation history management
+│   ├── user_memory.py          # User facts and preferences
+│   └── migrations/             # Database schema migrations
 │
-├── 📁 rag/                         # Document processing and retrieval
-│   ├── ingestion.py                # Document parsing and chunking
-│   ├── vectorstore.py              # ChromaDB interface
-│   ├── embeddings.py               # Embedding generation
-│   └── retriever.py                # Similarity search
-
+├── rag/                        # Document processing and retrieval
+│   ├── ingestion.py            # Parsing and chunking
+│   ├── vectorstore.py          # ChromaDB interface
+│   ├── embeddings.py           # Embedding generation
+│   └── retriever.py            # Similarity search
 │
-├── 📁 schemas/                     # Pydantic models for validation
-│   ├── auth.py                     # Auth request/response models
-│   ├── chat.py                     # Chat message models
-│   ├── code.py                     # Code generation models
-│   ├── gmail.py                    # Gmail integration models
-│   ├── rag.py                      # Document/RAG models
-│   └── user.py                     # User profile models
+├── schemas/                    # Pydantic models
+│   ├── auth.py
+│   ├── chat.py
+│   ├── code.py
+│   ├── gmail.py
+│   ├── rag.py
+│   └── user.py
 │
-├── 📁 services/                    # Business logic layer
-│   ├── auth_service.py             # Authentication logic
-│   ├── gmail_service.py            # Gmail API integration
-│   └── user_service.py             # User management
+├── services/                   # Business logic layer
+│   ├── auth_service.py
+│   ├── gmail_service.py
+│   └── user_service.py
 │
-├── 📁 tools/                       # LangChain tool definitions
-│   ├── web_search.py               # DuckDuckGo search tool
-│   ├── document_search.py          # RAG query tool
-│   ├── gmail_tools.py              # Gmail operation tools
-│   ├── code_tools.py               # Code generation tools
-│   └── factory.py                  # Tool factory with user binding
+├── tools/                      # LangChain tool definitions
+│   ├── web_search.py           # DuckDuckGo search tool
+│   ├── document_search.py      # RAG query tool
+│   ├── gmail_tools.py          # Gmail operation tools
+│   ├── code_tools.py           # Code generation tools
+│   └── factory.py              # Tool factory with user binding
 │
-├── 📁 scripts/                     # Utility scripts
-│   ├── assign_legacy_documents.py  # Migration helper
-│   └── generate_keys.py            # Key generation utility
+├── scripts/                    # Utility scripts
+│   ├── assign_legacy_documents.py
+│   └── generate_keys.py
 │
-├── 📁 tests/                       # Test suite
-│   ├── test_agents.py              # Agent behavior tests
-│   ├── test_api.py                 # API endpoint tests
-│   ├── test_auth.py                # Authentication tests
-│   ├── test_isolation.py           # User isolation tests
-│   ├── test_security.py            # Security tests
-│   └── test_streaming.py           # SSE streaming tests
+├── tests/                      # Test suite
+│   ├── test_agents.py
+│   ├── test_api.py
+│   ├── test_auth.py
+│   ├── test_isolation.py
+│   ├── test_security.py
+│   └── test_streaming.py
 │
-├── 📁 frontend/                    # React SPA
-│   │
-│   ├── 📁 src/
-│   │   ├── 📁 components/          # React components
-│   │   │   ├── 📁 auth/            # Auth UI (login, signup)
-│   │   │   ├── 📁 chat/            # Chat interface
-│   │   │   ├── 📁 cosmos/          # 3D visualizations
-│   │   │   ├── 📁 documents/       # Document management
-│   │   │   ├── 📁 gmail/           # Gmail interface
-│   │   │   └── 📁 settings/        # Settings panels
-│   │   │
-│   │   ├── 📁 lib/                 # Utilities and clients
-│   │   │   ├── api.ts              # Typed API client
-│   │   │   ├── auth.ts             # Auth helpers
-│   │   │   └── streaming.ts        # SSE handler
-│   │   │
-│   │   ├── 📁 stores/              # Zustand state management
-│   │   │   ├── authStore.ts        # Auth state
-│   │   │   ├── chatStore.ts        # Chat state
-│   │   │   └── settingsStore.ts    # App settings
-│   │   │
-│   │   ├── 📁 pages/               # Page components
-│   │   │   ├── Landing.tsx         # Landing page
-│   │   │   ├── Dashboard.tsx       # Main app dashboard
-│   │   │   └── NotFound.tsx        # 404 page
-│   │   │
-│   │   ├── 📁 hooks/               # Custom React hooks
-│   │   │   ├── useAuth.ts          # Authentication hook
-│   │   │   ├── useChat.ts          # Chat logic hook
-│   │   │   └── useLenis.ts         # Smooth scrolling
-│   │   │
-│   │   ├── App.tsx                 # Root component
-│   │   ├── main.tsx                # Entry point
-│   │   └── index.css               # Global styles
-│   │
-│   ├── 📁 public/                  # Static assets
-│   │   ├── pluto.png               # Logo
-│   │   └── favicon.ico             # Favicon
-│   │
-│   ├── index.html                  # HTML template
-│   ├── package.json                # Node dependencies
-│   ├── vite.config.ts              # Vite configuration
-│   ├── tailwind.config.js          # Tailwind CSS config
-│   ├── tsconfig.json               # TypeScript config
-│   ├── Dockerfile                  # Frontend container
-│   └── nginx.conf                  # nginx configuration
+├── frontend/                   # React SPA
+│   ├── src/
+│   │   ├── components/         # auth, chat, cosmos, documents, gmail, settings
+│   │   ├── lib/                # api.ts, auth.ts, streaming.ts
+│   │   ├── stores/             # authStore, chatStore, settingsStore
+│   │   ├── pages/              # Landing, Dashboard, NotFound
+│   │   ├── hooks/              # useAuth, useChat, useLenis
+│   │   ├── App.tsx
+│   │   ├── main.tsx
+│   │   └── index.css
+│   ├── public/                 # pluto.png, favicon.ico
+│   ├── index.html
+│   ├── package.json
+│   ├── vite.config.ts
+│   ├── tailwind.config.js
+│   ├── tsconfig.json
+│   ├── Dockerfile
+│   └── nginx.conf
 │
-├── 📁 .github/                     # GitHub configuration
-│   └── 📁 workflows/
-│       └── ci.yml                  # CI/CD pipeline
-│
-├── app.py                          # FastAPI application entry
-├── requirements.txt                # Python production dependencies
-├── requirements-dev.txt            # Python development dependencies
-├── pyproject.toml                  # Python project config (ruff, pytest)
-├── docker-compose.yml              # Multi-container orchestration
-├── Dockerfile                      # Backend container image
-├── .env.example                    # Environment template
-├── .gitignore                      # Git ignore rules
-├── README.md                       # This file
-├── CHANGELOG.md                    # Version history
-├── SECURITY.md                     # Security policy
-├── start.sh                        # Development start script
-├── stop.sh                         # Development stop script
-└── status.sh                       # Service status check
+├── .github/workflows/ci.yml    # CI/CD pipeline
+├── app.py                      # FastAPI application entry point
+├── requirements.txt            # Production dependencies
+├── requirements-dev.txt        # Development dependencies
+├── pyproject.toml              # Project config (ruff, pytest)
+├── docker-compose.yml          # Multi-container orchestration
+├── Dockerfile                  # Backend container image
+├── .env.example                # Environment template
+├── CHANGELOG.md                # Version history
+├── SECURITY.md                 # Security policy
+├── start.sh                    # Development start script
+├── stop.sh                     # Development stop script
+└── status.sh                   # Service status check
 ```
 
-### Key Components Explained
+### Component Notes
 
-#### Backend Structure
+**`agents/`**
+- `orchestrator.py` is the LangGraph state machine that analyzes queries and routes them to the appropriate agent.
+- Each specialized agent owns a single domain: research, documents, code, or email.
+- Agents invoke tools through the LangChain framework.
 
-**`agents/`** - The brain of Pluto
-- **orchestrator.py**: LangGraph state machine that analyzes user queries and routes to appropriate agents
-- **Specialized agents**: Each agent is an expert in its domain (research, documents, code, email)
-- **Tool integration**: Agents invoke tools through the LangChain framework
+**`api/v1/`**
+- One module per domain (auth, chat, rag, and so on).
+- Controllers are thin: they validate input and delegate to services.
+- OpenAPI documentation is generated automatically.
 
-**`api/v1/`** - RESTful HTTP interface
-- Each file handles one domain (auth, chat, rag, etc.)
-- Thin controllers that validate input and call services
-- Automatic OpenAPI documentation generation
+**`core/`**
+- `security.py`: JWT signing, password hashing, and token encryption.
+- `logging.py`: structured logs with request correlation.
+- `metrics.py`: Prometheus metrics.
+- `rate_limit.py`: token-bucket rate limiting per client.
 
-**`core/`** - Cross-cutting infrastructure
-- **security.py**: JWT signing, password hashing, token encryption
-- **logging.py**: Structured logs with request correlation
-- **metrics.py**: Prometheus metrics for observability
-- **rate_limit.py**: Token bucket rate limiting per client
+**`llm_provider/`**
+- A single interface across six providers.
+- Automatic provider detection from available API keys.
+- Model-specific parameter handling.
 
-**`llm_provider/`** - Multi-provider LLM abstraction
-- Unified interface across 6+ LLM providers
-- Automatic provider detection from API keys
-- Model-specific parameter handling
+**`memory/`**
+- PostgreSQL for structured data (users, facts, audit logs).
+- Redis for ephemeral data (chat history, rate limits).
+- Schema migrations run automatically on startup.
 
-**`memory/`** - Data persistence
-- PostgreSQL for structured data (users, facts, audit logs)
-- Redis for ephemeral data (chat history, rate limits)
-- Automatic schema migrations on startup
+**`rag/`**
+- Ingestion pipeline: parse, chunk, embed, index.
+- ChromaDB for vector similarity search.
+- Source citations included in responses.
 
-**`rag/`** - Document intelligence
-- Ingestion pipeline: parse → chunk → embed → index
-- ChromaDB for vector similarity search
-- Source citation in responses
-
-**`tools/`** - Agent capabilities
-- LangChain tools bound to the calling user
-- Enforces per-user isolation at the tool level
-- Web search, document query, Gmail access, code generation
-
-#### Frontend Structure
-
-**`components/`** - Reusable UI components
-- **auth/**: Login, signup, Google OAuth
-- **chat/**: Message bubbles, streaming indicators, tool activity
-- **cosmos/**: 3D vortex visualization, animated backgrounds
-- **documents/**: File upload, document list, search
-- **gmail/**: Inbox list, email viewer, summarization
-
-**`lib/`** - Utilities and API client
-- **api.ts**: Type-safe API client with error handling
-- **streaming.ts**: SSE connection management
-- **auth.ts**: Token storage and refresh logic
-
-**`stores/`** - Zustand state management
-- **authStore**: User session, permissions
-- **chatStore**: Messages, streaming state, tool activity
-- **settingsStore**: LLM provider selection, theme
-
-**`pages/`** - Route components
-- **Landing.tsx**: Marketing page with animated sections
-- **Dashboard.tsx**: Main application interface
+**`tools/`**
+- LangChain tools bound to the calling user.
+- Per-user isolation enforced at the tool level.
 
 ---
 
-## 🔍 Observability & Monitoring
+## Observability and Monitoring
 
 ### Logging
 
-Every request generates a structured log entry:
+Every request produces a structured log entry:
 
 ```json
 {
@@ -674,7 +617,7 @@ Every request generates a structured log entry:
 }
 ```
 
-**Agent actions** are logged with provider and latency:
+LLM calls are logged with provider and latency:
 
 ```json
 {
@@ -687,9 +630,9 @@ Every request generates a structured log entry:
 }
 ```
 
-### Metrics (Prometheus)
+### Metrics
 
-Available at `GET /metrics`:
+Prometheus metrics are available at `GET /metrics`:
 
 ```
 # HTTP request metrics
@@ -706,72 +649,68 @@ pluto_documents_ingested_total{user_id="hashed"} 42
 
 ### Health Probes
 
-**Liveness** (`GET /api/v1/health`):
-- Returns 200 if the process is running
-- Used by Kubernetes to restart crashed pods
-
-**Readiness** (`GET /api/v1/health/ready`):
-- Returns 200 if dependencies are healthy
-- Returns 503 if PostgreSQL is unreachable (in production)
-- Used by load balancers to route traffic
+| Probe | Endpoint | Behavior |
+|---|---|---|
+| Liveness | `GET /api/v1/health` | Returns 200 while the process is running; used by Kubernetes to restart failed pods |
+| Readiness | `GET /api/v1/health/ready` | Returns 200 when dependencies are healthy and 503 if PostgreSQL is unreachable (production); used by load balancers |
 
 ### Audit Log
 
 Security-sensitive events are written to the `audit_log` table:
 
 | Event | Logged Information |
-|-------|-------------------|
+|---|---|
 | Signup | Email, timestamp, IP address |
-| Login success/failure | Email, timestamp, IP, success |
-| Gmail link/unlink | User ID, timestamp |
+| Login success or failure | Email, timestamp, IP address, outcome |
+| Gmail link or unlink | User ID, timestamp |
 | Document upload | User ID, filename, size |
 | Document deletion | User ID, document ID |
 
-Query the audit log:
+Example query:
+
 ```sql
-SELECT * FROM audit_log 
-WHERE user_id = 'user_456' 
-ORDER BY timestamp DESC 
+SELECT * FROM audit_log
+WHERE user_id = 'user_456'
+ORDER BY timestamp DESC
 LIMIT 20;
 ```
 
 ---
 
-## 🧪 Testing & Quality Assurance
+## Testing and Quality Assurance
 
-### Test Suite
-
-Run the complete test suite:
+### Running Tests
 
 ```bash
-# Backend tests
+# Backend
 pytest --cov                 # With coverage report
 pytest -v                    # Verbose output
-pytest tests/test_auth.py    # Specific test file
+pytest tests/test_auth.py    # Single test file
 
-# Frontend tests
+# Frontend
 cd frontend
-npm run check                # TypeScript + lint + build
+npm run check                # TypeScript, lint, and build
 npm run lint                 # ESLint only
 npm run type-check           # TypeScript only
 ```
 
-### Test Coverage
+### Coverage
 
-**93 tests** covering:
-- ✅ **Security**: JWT validation, password hashing, rate limiting, CSRF protection
-- ✅ **API contracts**: Request/response validation for all endpoints
-- ✅ **User isolation**: Documents, chats, and Gmail scoped correctly
-- ✅ **Streaming**: SSE event parsing and error handling
-- ✅ **Agent behavior**: Tool selection, response formatting
-- ✅ **Error cases**: Invalid input, missing auth, resource not found
+The suite contains 93 tests covering:
 
-### Linting & Formatting
+- **Security:** JWT validation, password hashing, rate limiting, CSRF protection
+- **API contracts:** request and response validation for all endpoints
+- **User isolation:** documents, chats, and Gmail correctly scoped per user
+- **Streaming:** SSE event parsing and error handling
+- **Agent behavior:** tool selection and response formatting
+- **Error cases:** invalid input, missing authentication, missing resources
+
+### Linting and Formatting
 
 ```bash
 # Python
 ruff check .                 # Lint (includes security rules)
-ruff format .                # Format code
+ruff format .                # Format
 
 # Frontend
 cd frontend
@@ -782,60 +721,57 @@ npm run format               # Prettier (if configured)
 ### Security Audits
 
 ```bash
-# Python dependency vulnerabilities
-pip-audit
+pip-audit                    # Python dependency vulnerabilities
 
-# Node dependency vulnerabilities  
 cd frontend
-npm audit
-
-# Fix auto-fixable issues
-npm audit fix
+npm audit                    # Node dependency vulnerabilities
+npm audit fix                # Apply automatic fixes
 ```
 
 ### CI/CD Pipeline
 
-GitHub Actions (`.github/workflows/ci.yml`) runs on every push and PR:
+GitHub Actions (`.github/workflows/ci.yml`) runs on every push and pull request:
 
-1. **Lint**: Python (ruff) and TypeScript (ESLint)
-2. **Type check**: Python (mypy if configured) and TypeScript
-3. **Test**: pytest with coverage report
-4. **Security**: pip-audit and npm audit
-5. **Build**: Docker images for backend and frontend
-6. **Deploy**: (Configure for your environment)
+1. **Lint:** Python (ruff) and TypeScript (ESLint)
+2. **Type check:** Python (mypy, if configured) and TypeScript
+3. **Test:** pytest with coverage reporting
+4. **Security:** pip-audit and npm audit
+5. **Build:** Docker images for backend and frontend
+6. **Deploy:** configure for your target environment
 
 ---
 
-## 🔐 Security
+## Security
 
-Pluto is built with security as a first-class concern. See [SECURITY.md](SECURITY.md) for the complete security model.
+Pluto treats security as a first-class concern. See [SECURITY.md](SECURITY.md) for the complete security model.
 
-### Security Features
+### Authentication and Authorization
 
-#### Authentication & Authorization
-- ✅ JWT tokens with secure signing (HMAC-SHA256)
-- ✅ Token expiration and refresh mechanisms
-- ✅ PBKDF2 password hashing (600,000 iterations)
-- ✅ Automatic password hash upgrades
-- ✅ Google OAuth 2.0 integration with token verification
-- ✅ Per-user data isolation enforced at the query level
+- JWT tokens with HMAC-SHA256 signing
+- Token expiration and refresh mechanisms
+- PBKDF2 password hashing (600,000 iterations) with automatic hash upgrades
+- Google OAuth 2.0 integration with server-side token verification
+- Per-user data isolation enforced at the query level
 
-#### Encryption
-- ✅ OAuth tokens encrypted at rest (Fernet symmetric encryption)
-- ✅ HTTPS enforced in production (HSTS headers)
-- ✅ Secure cookie flags (HttpOnly, Secure, SameSite)
+### Encryption
 
-#### Attack Prevention
-- ✅ CSRF protection on state-changing endpoints
-- ✅ Rate limiting (per-client and per-auth)
-- ✅ SQL injection prevention (parameterized queries)
-- ✅ XSS prevention (React escaping + CSP headers)
-- ✅ Strict CORS (no wildcard origins)
+- OAuth tokens encrypted at rest (Fernet symmetric encryption)
+- HTTPS enforced in production (HSTS)
+- Secure cookie flags (HttpOnly, Secure, SameSite)
 
-#### Observability
-- ✅ Audit logging for security events
-- ✅ Request ID correlation across logs
-- ✅ Failed login attempt tracking
+### Attack Prevention
+
+- CSRF protection on state-changing endpoints
+- Rate limiting (per client and per authentication endpoint)
+- SQL injection prevention through parameterized queries
+- XSS prevention through React escaping and CSP headers
+- Strict CORS with no wildcard origins
+
+### Monitoring
+
+- Audit logging for security events
+- Request ID correlation across logs
+- Failed login attempt tracking
 
 ### Security Headers
 
@@ -851,130 +787,142 @@ X-XSS-Protection: 1; mode=block
 
 ### Reporting Vulnerabilities
 
-Found a security issue? Please report it responsibly:
+To report a security issue responsibly:
 
-1. **Do not** open a public GitHub issue
-2. Email: [Your security contact email]
-3. Include: Description, impact, reproduction steps
-4. We'll acknowledge within 48 hours
+1. Do not open a public GitHub issue.
+2. Contact the maintainer privately through the [portfolio](https://willx.tech/) or via [GitHub](https://github.com/SheerWill007).
+3. Include a description, the potential impact, and steps to reproduce.
+
+Reports will be acknowledged within 48 hours.
 
 ---
 
-## 🔄 Upgrading from v1.x
+## Upgrading from v1.x
 
-If you're upgrading from Pluto 1.x, please note these breaking changes:
+The following breaking changes apply when upgrading from Pluto 1.x.
 
-### Authentication Changes
-- ⚠️ **Session tokens are incompatible**: All users must sign in again
-- ⚠️ **All endpoints require authentication**: Previously public endpoints now need a bearer token
-- ⚠️ **Google sign-in changed**: Now requires `access_token`, `id_token`, or auth `code` (not raw email)
+### Authentication
 
-### Data Model Changes
-- ⚠️ **Documents are per-user**: Legacy documents have no owner
+- **Session tokens are incompatible.** All users must sign in again.
+- **All endpoints require authentication.** Previously public endpoints now require a bearer token.
+- **Google sign-in has changed.** It now requires an `access_token`, `id_token`, or authorization `code`, rather than a raw email address.
+
+### Data Model
+
+- **Documents are per-user.** Legacy documents have no owner and must be assigned:
+
   ```bash
   # Assign legacy documents to a user
   python -m scripts.assign_legacy_documents --owner <user_id>
-  
+
   # Preview changes first
   python -m scripts.assign_legacy_documents --owner <user_id> --dry-run
   ```
 
-### API Changes
-- ✅ Error responses now include `request_id` for log correlation
-- ✅ LLM provider failures return `502` (was `400`)
-- ✅ Database schema migrations run automatically on startup
+### API
+
+- Error responses now include a `request_id` for log correlation.
+- LLM provider failures return `502` (previously `400`).
+- Database schema migrations run automatically on startup.
 
 ### Environment Variables
-- ⚠️ `JWT_SECRET_KEY` is now required in production (≥32 chars)
-- ⚠️ `TOKEN_ENCRYPTION_KEY` required for Gmail integration
 
-See [CHANGELOG.md](CHANGELOG.md) for the complete changelog.
+- `JWT_SECRET_KEY` is now required in production (minimum 32 characters).
+- `TOKEN_ENCRYPTION_KEY` is required for Gmail integration.
+
+See [CHANGELOG.md](CHANGELOG.md) for the complete list of changes.
 
 ---
 
-## 🛠️ Development Guide
+## Development Guide
 
-### Setting Up Your Environment
+### Environment Setup
 
 1. **Install dependencies**
+
    ```bash
    # Backend
    python -m venv .venv
    source .venv/bin/activate
    pip install -r requirements-dev.txt
-   
+
    # Frontend
    cd frontend
    npm ci
    ```
 
 2. **Start databases** (optional for development)
+
    ```bash
    docker compose up -d postgres redis
    ```
 
-3. **Run migrations**
+3. **Run migrations** (automatic on startup, or manually)
+
    ```bash
-   # Automatic on app startup, or manually:
    python -m alembic upgrade head
    ```
 
 4. **Start services**
+
    ```bash
-   ./start.sh  # or start backend/frontend separately
+   ./start.sh  # or start the backend and frontend separately
    ```
 
 ### Code Style
 
 **Python**
-- Follow PEP 8
-- Use type hints
-- Max line length: 120 characters
-- Use `ruff` for linting and formatting
+- Follow PEP 8.
+- Use type hints.
+- Maximum line length of 120 characters.
+- Use `ruff` for linting and formatting.
 
-**TypeScript/React**
-- Use TypeScript strict mode
-- Functional components with hooks
-- Props interfaces for all components
-- Use ESLint and Prettier
+**TypeScript and React**
+- TypeScript strict mode.
+- Functional components with hooks.
+- Props interfaces for all components.
+- ESLint and Prettier.
 
 ### Adding a New Agent
 
-1. Create agent in `agents/new_agent.py`:
+1. Create the agent in `agents/new_agent.py`:
+
    ```python
    from langchain.agents import AgentExecutor
    from langchain.tools import Tool
-   
+
    def create_new_agent(llm, user_id: str):
-       tools = [...]  # Your tools
+       tools = [...]  # Agent-specific tools
        # Agent implementation
        return agent
    ```
 
-2. Register in `agents/orchestrator.py`:
+2. Register it in `agents/orchestrator.py`:
+
    ```python
    from agents.new_agent import create_new_agent
-   
-   # Add to orchestrator's tool selection logic
+
+   # Add to the orchestrator's tool selection logic
    ```
 
-3. Add endpoint in `api/v1/new_feature.py`
-
-4. Add tests in `tests/test_new_agent.py`
+3. Add an endpoint in `api/v1/new_feature.py`.
+4. Add tests in `tests/test_new_agent.py`.
 
 ### Adding a New LLM Provider
 
-1. Create provider in `llm_provider/new_provider.py`:
+1. Create the provider in `llm_provider/new_provider.py`:
+
    ```python
    from llm_provider.base import BaseLLMProvider
-   
+
    class NewProvider(BaseLLMProvider):
        def get_model(self, model_name: str, **kwargs):
            # Implementation
            pass
    ```
 
-2. Register in `llm_provider/factory.py`:
+2. Register it in `llm_provider/factory.py`:
+
    ```python
    PROVIDERS = {
        ...
@@ -982,64 +930,56 @@ See [CHANGELOG.md](CHANGELOG.md) for the complete changelog.
    }
    ```
 
-3. Add environment variables to `.env.example`
-
-4. Document in README configuration section
-
----
-
-## 📚 Additional Resources
-
-### Documentation
-- [API Documentation](http://localhost:8000/docs) - Interactive OpenAPI docs
-- [CHANGELOG.md](CHANGELOG.md) - Version history and breaking changes
-- [SECURITY.md](SECURITY.md) - Security policy and threat model
-
-### Related Projects
-- [LangChain](https://github.com/langchain-ai/langchain) - LLM framework
-- [LangGraph](https://github.com/langchain-ai/langgraph) - Agent orchestration
-- [FastAPI](https://fastapi.tiangolo.com/) - Web framework
-- [ChromaDB](https://www.trychroma.com/) - Vector database
-
-### Community & Support
-- **GitHub Issues**: Bug reports and feature requests
-- **Discussions**: Questions and community help
-- **Discord**: [Link if available]
+3. Add the required environment variables to `.env.example`.
+4. Document the provider in the Configuration section of this README.
 
 ---
 
-## 📄 License
+## Additional Resources
 
-This project is proprietary and confidential. Please refer to the internal documentation for licensing terms.
+- [API Documentation](http://localhost:8000/docs): interactive OpenAPI docs (when running locally)
+- [CHANGELOG.md](CHANGELOG.md): version history and breaking changes
+- [SECURITY.md](SECURITY.md): security policy and threat model
+
+**Related projects**
+
+- [LangChain](https://github.com/langchain-ai/langchain): LLM framework
+- [LangGraph](https://github.com/langchain-ai/langgraph): agent orchestration
+- [FastAPI](https://fastapi.tiangolo.com/): web framework
+- [ChromaDB](https://www.trychroma.com/): vector database
+
+**Support**
+
+- Bug reports and feature requests: [GitHub Issues](https://github.com/SheerWill007/Pluto/issues)
 
 ---
 
-## 🙏 Acknowledgments
+## License
 
-Built with:
-- **LangChain & LangGraph** - Agent orchestration
-- **FastAPI** - High-performance Python web framework
-- **React & Vite** - Modern frontend stack
-- **PostgreSQL, Redis, ChromaDB** - Robust data layer
-- **Anthropic, OpenAI, Google** - LLM providers
+This project is proprietary and confidential. Refer to the internal documentation for licensing terms.
 
 ---
 
-## 📬 Contact
+## Acknowledgments
 
-**Developer**: [willxtech](https://willx.tech)
+- LangChain and LangGraph for agent orchestration
+- FastAPI for the Python web framework
+- React and Vite for the frontend stack
+- PostgreSQL, Redis, and ChromaDB for the data layer
+- Anthropic, OpenAI, and Google as LLM providers
 
-**Links**:
-- 🌐 Portfolio: [willx.tech](https://willx.tech/)
-- 💼 LinkedIn: [linkedin.com/in/willxtech](https://www.linkedin.com/in/willxtech)
-- 🐙 GitHub: [github.com/SheerWill007](https://github.com/SheerWill007)
+---
+
+## Author
+
+**willxtech**
+
+- Portfolio: [willx.tech](https://willx.tech/)
+- GitHub: [github.com/SheerWill007](https://github.com/SheerWill007)
+- LinkedIn: [linkedin.com/in/willxtech](https://www.linkedin.com/in/willxtech)
 
 ---
 
 <p align="center">
-  <strong>Made with ❤️ by willxtech</strong>
-</p>
-
-<p align="center">
-  <sub>Pluto • Multi-Agent AI Workspace • 2026</sub>
+  <sub>Pluto | Multi-Agent AI Workspace | 2026 | Built by <a href="https://willx.tech/">willxtech</a></sub>
 </p>
