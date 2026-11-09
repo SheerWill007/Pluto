@@ -1,7 +1,8 @@
 # Render Blueprint: https://render.com/docs/blueprint-spec
 #
-#   pluto-api    FastAPI backend (Docker)          -> PostgreSQL + Key Value (Redis)
-#   pluto-web    React SPA (static site)           -> calls pluto-api over HTTPS
+# Backend only, grouped in the Render project "plutoai":
+#   pluto-api    FastAPI backend (Docker)  -> pluto-db (PostgreSQL) + pluto-cache (Key Value)
+# The React frontend is deployed separately on Vercel (see frontend/vercel.json).
 #
 # Secrets you must add yourself in the Render dashboard (marked `sync: false`):
 #   GOOGLE_API_KEY (or another provider key), and optionally Google sign-in / Gmail OAuth.
@@ -11,99 +12,74 @@
 # ChromaDB folder is not persistent (uploaded documents are lost on redeploy), and the free
 # PostgreSQL instance expires after 30 days unless upgraded.
 
-services:
-  - type: web
-    name: pluto-api
-    runtime: docker
-    plan: free
-    region: oregon
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
-    healthCheckPath: /api/v1/health
-    autoDeploy: true
-    envVars:
-      - key: ENVIRONMENT
-        value: production
-      - key: LOG_FORMAT
-        value: json
-      - key: WEB_CONCURRENCY
-        value: "1"
-      - key: JWT_SECRET_KEY
-        generateValue: true
-      - key: TOKEN_ENCRYPTION_KEY
-        generateValue: true
-      - key: POSTGRES_URL
-        fromDatabase:
-          name: pluto-db
-          property: connectionString
-      - key: REDIS_URL
-        fromService:
-          type: keyvalue
-          name: pluto-cache
-          property: connectionString
-      # Browser origins allowed to call the API (comma-separated; bare hosts mean https).
-      # Render appended "-noh0" to service names when this Blueprint was created.
-      - key: CORS_ORIGINS
-        value: https://pluto-web-noh0.onrender.com,http://localhost:5173
-      - key: FRONTEND_URL
-        value: https://pluto-web-noh0.onrender.com
-      - key: ALLOW_GUEST_ACCESS
-        value: "true"
-      - key: LLM_PROVIDER
-        value: google
-      - key: LLM_MODEL
-        value: gemini-flash-lite-latest
-      - key: GOOGLE_API_KEY
-        sync: false
-      - key: GOOGLE_CLIENT_ID
-        sync: false
-      - key: GMAIL_WEB_CLIENT_ID
-        sync: false
-      - key: GMAIL_WEB_CLIENT_SECRET
-        sync: false
-      - key: GMAIL_REDIRECT_URI
-        value: https://pluto-api-noh0.onrender.com/api/v1/gmail/callback
+projects:
+  - name: plutoai
+    environments:
+      - name: production
+        services:
+          - type: web
+            name: pluto-api
+            runtime: docker
+            plan: free
+            region: oregon
+            dockerfilePath: ./Dockerfile
+            dockerContext: .
+            healthCheckPath: /api/v1/health
+            autoDeploy: true
+            envVars:
+              - key: ENVIRONMENT
+                value: production
+              - key: LOG_FORMAT
+                value: json
+              - key: WEB_CONCURRENCY
+                value: "1"
+              - key: JWT_SECRET_KEY
+                generateValue: true
+              - key: TOKEN_ENCRYPTION_KEY
+                generateValue: true
+              - key: POSTGRES_URL
+                fromDatabase:
+                  name: pluto-db
+                  property: connectionString
+              - key: REDIS_URL
+                fromService:
+                  type: keyvalue
+                  name: pluto-cache
+                  property: connectionString
+              # Browser origins allowed to call the API (comma-separated; bare hosts mean https).
+              # Render appended "-noh0" to service names when this Blueprint was created.
+              - key: CORS_ORIGINS
+                value: https://pluto-web-noh0.onrender.com,http://localhost:5173
+              - key: FRONTEND_URL
+                value: https://pluto-web-noh0.onrender.com
+              - key: ALLOW_GUEST_ACCESS
+                value: "true"
+              - key: LLM_PROVIDER
+                value: google
+              - key: LLM_MODEL
+                value: gemini-flash-lite-latest
+              - key: GOOGLE_API_KEY
+                sync: false
+              - key: GOOGLE_CLIENT_ID
+                sync: false
+              - key: GMAIL_WEB_CLIENT_ID
+                sync: false
+              - key: GMAIL_WEB_CLIENT_SECRET
+                sync: false
+              - key: GMAIL_REDIRECT_URI
+                value: https://pluto-api-noh0.onrender.com/api/v1/gmail/callback
 
-  - type: web
-    name: pluto-web
-    runtime: static
-    rootDir: frontend
-    buildCommand: npm ci --no-audit --no-fund && npm run build
-    staticPublishPath: ./dist
-    autoDeploy: true
-    envVars:
-      - key: NODE_VERSION
-        value: "22"
-      # Public API URL baked into the SPA at build time. (fromService `host` would give the
-      # private-network hostname, which browsers cannot reach.)
-      - key: VITE_API_URL
-        value: https://pluto-api-noh0.onrender.com
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-    headers:
-      - path: /*
-        name: X-Content-Type-Options
-        value: nosniff
-      - path: /*
-        name: Referrer-Policy
-        value: strict-origin-when-cross-origin
-      - path: /assets/*
-        name: Cache-Control
-        value: public, max-age=31536000, immutable
+          - type: keyvalue
+            name: pluto-cache
+            plan: free
+            region: oregon
+            maxmemoryPolicy: allkeys-lru
+            ipAllowList: []  # internal connections only
 
-  - type: keyvalue
-    name: pluto-cache
-    plan: free
-    region: oregon
-    maxmemoryPolicy: allkeys-lru
-    ipAllowList: []  # internal connections only
-
-databases:
-  - name: pluto-db
-    plan: free
-    region: oregon
-    databaseName: pluto
-    user: pluto
-    ipAllowList: []  # internal connections only
+        databases:
+          - name: pluto-db
+            plan: free
+            region: oregon
+            databaseName: pluto
+            user: pluto
+            ipAllowList: []  # internal connections only
