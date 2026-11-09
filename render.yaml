@@ -47,11 +47,11 @@ projects:
                   name: pluto-cache
                   property: connectionString
               # Browser origins allowed to call the API (comma-separated; bare hosts mean https).
-              # Render appended "-noh0" to service names when this Blueprint was created.
+              # Frontend: Vercel (pluto-aii). Render appended "-noh0" to the service names.
               - key: CORS_ORIGINS
-                value: https://pluto-web-noh0.onrender.com,http://localhost:5173
+                value: https://pluto-aii.vercel.app,http://localhost:5173
               - key: FRONTEND_URL
-                value: https://pluto-web-noh0.onrender.com
+                value: https://pluto-aii.vercel.app
               - key: ALLOW_GUEST_ACCESS
                 value: "true"
               - key: LLM_PROVIDER

@@ -33,6 +33,7 @@ venv.bak/
 .env
 .env.*
 !.env.example
+!frontend/.env.production
 *.pid
 .backend.pid
 .frontend.pid
