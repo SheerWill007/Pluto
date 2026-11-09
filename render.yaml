@@ -74,11 +74,10 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "22"
+      # Public API URL baked into the SPA at build time. (fromService `host` would give the
+      # private-network hostname, which browsers cannot reach.)
       - key: VITE_API_URL
-        fromService:
-          type: web
-          name: pluto-api
-          property: host
+        value: https://pluto-api-noh0.onrender.com
     routes:
       - type: rewrite
         source: /*
