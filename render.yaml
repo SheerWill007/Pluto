@@ -41,11 +41,12 @@ services:
           type: keyvalue
           name: pluto-cache
           property: connectionString
-      # Browser origins allowed to call the API (comma-separated; bare hosts mean https)
+      # Browser origins allowed to call the API (comma-separated; bare hosts mean https).
+      # Render appended "-noh0" to service names when this Blueprint was created.
       - key: CORS_ORIGINS
-        value: https://pluto-web.onrender.com,http://localhost:5173
+        value: https://pluto-web-noh0.onrender.com,http://localhost:5173
       - key: FRONTEND_URL
-        value: https://pluto-web.onrender.com
+        value: https://pluto-web-noh0.onrender.com
       - key: ALLOW_GUEST_ACCESS
         value: "true"
       - key: LLM_PROVIDER
@@ -61,7 +62,7 @@ services:
       - key: GMAIL_WEB_CLIENT_SECRET
         sync: false
       - key: GMAIL_REDIRECT_URI
-        value: https://pluto-api.onrender.com/api/v1/gmail/callback
+        value: https://pluto-api-noh0.onrender.com/api/v1/gmail/callback
 
   - type: web
     name: pluto-web

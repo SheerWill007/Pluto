@@ -24,7 +24,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PATH="/opt/venv/bin:$PATH" \
     ENVIRONMENT=production \
     LOG_FORMAT=json \
-    WEB_CONCURRENCY=1 \n    PORT=8000 \
+    WEB_CONCURRENCY=1 \
+    PORT=8000 \
     CHROMA_PERSIST_DIR=/app/data/chroma
 
 RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin pluto
