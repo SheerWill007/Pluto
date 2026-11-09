@@ -24,7 +24,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PATH="/opt/venv/bin:$PATH" \
     ENVIRONMENT=production \
     LOG_FORMAT=json \
-    WEB_CONCURRENCY=2 \
+    WEB_CONCURRENCY=1 \n    PORT=8000 \
     CHROMA_PERSIST_DIR=/app/data/chroma
 
 RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin pluto
@@ -38,8 +38,10 @@ USER pluto
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/live', timeout=4)" || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/api/v1/health/live' % __import__('os').environ.get('PORT','8000'), timeout=4)" || exit 1
 
 # --proxy-headers: trust X-Forwarded-* from the load balancer for client IPs (rate limiting, audit)
-# Workers come from WEB_CONCURRENCY. Multiple workers need Redis + a fixed JWT_SECRET_KEY.
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
+# PORT is injected by hosts such as Render/Railway/Fly; it defaults to 8000 for Docker Compose.
+# Workers come from WEB_CONCURRENCY (default 1: free-tier hosts have ~512 MB of RAM).
+# Multiple workers need Redis + a fixed JWT_SECRET_KEY.
+CMD ["sh", "-c", "exec uvicorn app:app --host 0.0.0.0 --port ${PORT:-8000} --workers ${WEB_CONCURRENCY:-1} --proxy-headers --forwarded-allow-ips '*'"]

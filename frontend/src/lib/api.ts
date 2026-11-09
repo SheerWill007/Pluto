@@ -9,7 +9,13 @@
  */
 
 // Empty string = same origin (e.g. nginx proxies /api to the backend in the Docker image)
-export const API_URL = (import.meta.env.VITE_API_URL ?? 'http://localhost:8000').replace(/\/+$/, '');
+// A bare hostname (as injected by some hosts, e.g. Render's `fromService.host`) means https.
+function normalizeApiUrl(raw: string): string {
+  const url = raw.trim().replace(/\/+$/, '');
+  if (!url || /^https?:\/\//i.test(url)) return url;
+  return `https://${url}`;
+}
+export const API_URL = normalizeApiUrl(import.meta.env.VITE_API_URL ?? 'http://localhost:8000');
 const API_PREFIX = '/api/v1';
 const DEFAULT_TIMEOUT_MS = 60_000;
 

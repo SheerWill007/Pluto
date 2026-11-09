@@ -737,7 +737,26 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every push and pull request:
 3. **Test:** pytest with coverage reporting
 4. **Security:** pip-audit and npm audit
 5. **Build:** Docker images for backend and frontend
-6. **Deploy:** configure for your target environment
+6. **Deploy:** Render auto-deploys `main` from the Blueprint (see below)
+
+---
+
+## Deploying to Render
+
+The repository includes a [Render Blueprint](render.yaml) that creates the whole stack on Render's free plan:
+
+| Resource | Type | Purpose |
+|---|---|---|
+| `pluto-api` | Web service (Docker) | FastAPI backend |
+| `pluto-web` | Static site | React SPA, built with `VITE_API_URL` pointing at `pluto-api` |
+| `pluto-db` | PostgreSQL | Accounts, facts, Gmail tokens, audit log |
+| `pluto-cache` | Key Value (Redis) | Chat memory and rate limits |
+
+1. In the Render dashboard choose **New > Blueprint** and select this repository.
+2. Fill in the secrets Render asks for. At minimum set `GOOGLE_API_KEY` (or switch `LLM_PROVIDER` and set that provider's key). `JWT_SECRET_KEY` and `TOKEN_ENCRYPTION_KEY` are generated automatically.
+3. If Render adds a suffix to a service name (for example `pluto-api-x1y2`), update `CORS_ORIGINS`, `FRONTEND_URL` and `GMAIL_REDIRECT_URI` on `pluto-api` to the real URLs.
+
+Free-plan notes: the API sleeps after 15 minutes idle (the first request then takes about a minute), uploaded documents live on an ephemeral disk, and the free database expires after 30 days. The container runs one worker (`WEB_CONCURRENCY=1`) to stay inside the 512 MB memory limit.
 
 ---
 

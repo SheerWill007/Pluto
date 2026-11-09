@@ -32,6 +32,34 @@ class TestCrypto:
         assert crypto.decrypt_secret("plain-legacy-token") == "plain-legacy-token"
         assert crypto.decrypt_secret(None) is None
 
+    def test_fernet_key_is_kept_as_is(self):
+        from cryptography.fernet import Fernet
+
+        from core import crypto
+        key = Fernet.generate_key()
+        assert crypto._fernet_key(key.decode()) == key
+
+    def test_arbitrary_secret_is_derived_into_a_stable_key(self, monkeypatch):
+        from cryptography.fernet import Fernet
+
+        from core import crypto
+        secret = "Zx9+platform/generated==secret-that-is-not-fernet"
+        key = crypto._fernet_key(secret)
+        assert key == crypto._fernet_key(secret)
+        Fernet(key)  # valid Fernet key
+        crypto._fernet.cache_clear()
+        monkeypatch.setattr(settings, "TOKEN_ENCRYPTION_KEY", secret)
+        try:
+            assert crypto.decrypt_secret(crypto.encrypt_secret("tok")) == "tok"
+        finally:
+            crypto._fernet.cache_clear()
+
+
+class TestCorsOrigins:
+    def test_bare_hosts_become_https_origins(self, monkeypatch):
+        monkeypatch.setattr(settings, "CORS_ORIGINS", "pluto-web.onrender.com, http://localhost:5173/ ,")
+        assert settings.cors_origins == ["https://pluto-web.onrender.com", "http://localhost:5173"]
+
 
 class TestGmailBodyExtraction:
     def test_nested_multipart_prefers_plain_text(self):

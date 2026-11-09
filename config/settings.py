@@ -119,7 +119,16 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins(self) -> List[str]:
-        return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+        # Bare hostnames (e.g. injected by a hosting platform) are treated as https origins
+        origins = []
+        for o in self.CORS_ORIGINS.split(","):
+            o = o.strip().rstrip("/")
+            if not o:
+                continue
+            if o != "*" and "://" not in o:
+                o = f"https://{o}"
+            origins.append(o)
+        return origins
 
     @property
     def allowed_upload_extensions(self) -> List[str]:

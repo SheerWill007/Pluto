@@ -5,8 +5,8 @@ import { useCodingStore } from '../../store/useCodingStore';
 import GlassCard from '../ui/GlassCard';
 import MarkdownFormatter from '../ui/MarkdownFormatter';
 import { 
-  Plus, Trash2, Code2, Cpu, Sparkles, Terminal, FileText, 
-  ChevronDown, ChevronUp, Clipboard, RefreshCw, Zap, CheckCircle2, 
+  Plus, Trash2, Code2, Cpu, Sparkles, FileText, 
+  ChevronDown, ChevronUp, RefreshCw, Zap, CheckCircle2, 
   XCircle, Send, MessageSquare, FileCode, Play
 } from 'lucide-react';
 import { gsap } from 'gsap';
@@ -225,7 +225,7 @@ export const CodingPanel = () => {
         >
           <div className="flex-1 overflow-y-auto pr-2 space-y-5 min-h-0">
             {generations.length > 0 ? (
-              generations.map((gen, idx) => {
+              generations.map((gen) => {
                 const isSelected = activeBlock && activeBlock.id === gen.id;
                 
                 return (
