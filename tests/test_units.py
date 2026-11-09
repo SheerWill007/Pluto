@@ -207,3 +207,40 @@ class TestGeminiPatch:
         from llm_provider.google_provider import GoogleProvider
         model = GoogleProvider(api_key="AQ.test-key", model="gemini-flash-lite-latest").get_model()
         assert model.client._api_client._http_options.api_version == "v1beta"
+
+
+class TestWebSearch:
+    def _fake_ddgs(self, monkeypatch, outcomes):
+        import ddgs
+        calls = []
+
+        class FakeDDGS:
+            def __init__(self, timeout=None):
+                pass
+
+            def text(self, query, region=None, max_results=None, backend=None):
+                calls.append((backend, region))
+                outcome = outcomes[backend]
+                if isinstance(outcome, Exception):
+                    raise outcome
+                return outcome
+
+        monkeypatch.setattr(ddgs, "DDGS", FakeDDGS)
+        return calls
+
+    def test_falls_back_to_next_engine_group(self, monkeypatch):
+        from tools import web_search as ws
+        first, second = ws.ENGINE_GROUPS
+        calls = self._fake_ddgs(monkeypatch, {
+            first: RuntimeError("timed out"),
+            second: [{"title": "Pluto", "href": "https://example.org/pluto", "body": "Dwarf planet"}],
+        })
+        out = ws.web_searcher("pluto")
+        assert "1. Pluto" in out and "https://example.org/pluto" in out and "Dwarf planet" in out
+        assert [c[0] for c in calls] == [first, second]
+        assert all(region == "us-en" for _, region in calls)
+
+    def test_reports_unavailable_when_every_group_fails(self, monkeypatch):
+        from tools import web_search as ws
+        self._fake_ddgs(monkeypatch, {g: RuntimeError("No results found.") for g in ws.ENGINE_GROUPS})
+        assert ws.web_searcher("pluto").startswith("Web search is currently unavailable")
