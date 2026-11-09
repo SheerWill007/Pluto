@@ -96,7 +96,9 @@ class GoogleProvider(BaseLLMProvider):
             temperature = self.config.get("temperature", 0.7)
             max_tokens = self.config.get("max_tokens")
 
-            # Setup ChatGoogleGenerativeAI with explicit client_options api_key for x-goog-api-key header
+            # langchain-google-genai 4.x defaults to the `v1` API, where Google's `-latest` model
+            # aliases (Pluto's defaults) return 404 NOT_FOUND. Pin `v1beta`, which serves them and
+            # matches generate_content_rest() below.
             self._model = ChatGoogleGenerativeAI(
                 google_api_key=api_key,
                 model=model_name,
@@ -104,7 +106,7 @@ class GoogleProvider(BaseLLMProvider):
                 max_output_tokens=max_tokens,
                 timeout=45,
                 max_retries=2,
-                transport="rest",
+                api_version="v1beta",
             )
         return self._model
 
