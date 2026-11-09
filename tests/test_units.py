@@ -178,3 +178,32 @@ def test_server_base_url_is_not_reused_for_other_providers(monkeypatch):
     assert groq_cfg["base_url"] == "https://api.groq.com/openai/v1"
     assert groq_cfg["api_key"] == "gsk_server"
     assert llm_initializer.resolve_llm_config(provider="ollama")["base_url"] == "http://localhost:11434"
+
+
+class TestGeminiPatch:
+    """The thought_signature patch must accept whatever arguments langchain-google-genai passes."""
+
+    def test_patched_parsers_accept_library_arguments(self):
+        from google.genai.types import Candidate, Content, FunctionCall, Part
+        from langchain_core.messages import AIMessage, HumanMessage
+        from langchain_google_genai import chat_models
+
+        from llm_provider.google_provider import _apply_thought_signature_patch
+        _apply_thought_signature_patch()
+
+        candidate = Candidate(content=Content(role="model", parts=[
+            Part(function_call=FunctionCall(name="web_search", args={"q": "x"}), thought_signature=b"sig"),
+        ]))
+        msg = chat_models._parse_response_candidate(candidate, False, model_name="gemini-flash-lite-latest")
+        assert msg.additional_kwargs["thought_signatures"] == [b"sig"]
+
+        history = [HumanMessage("hi"), AIMessage("", tool_calls=[{"name": "web_search", "args": {"q": "x"}, "id": "1"}],
+                                                 additional_kwargs={"thought_signatures": [b"sig"]})]
+        _, contents = chat_models._parse_chat_history(history, False, "gemini-flash-lite-latest")
+        calls = [p for c in contents if c.role == "model" for p in c.parts if p.function_call]
+        assert calls and calls[0].thought_signature == b"sig"
+
+    def test_google_model_uses_v1beta(self):
+        from llm_provider.google_provider import GoogleProvider
+        model = GoogleProvider(api_key="AQ.test-key", model="gemini-flash-lite-latest").get_model()
+        assert model.client._api_client._http_options.api_version == "v1beta"

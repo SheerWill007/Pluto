@@ -26,8 +26,10 @@ def _apply_thought_signature_patch():
     orig_parse_candidate = chat_models._parse_response_candidate
     orig_parse_history = chat_models._parse_chat_history
 
-    def patched_parse_candidate(candidate, streaming=False):
-        ai_msg = orig_parse_candidate(candidate, streaming)
+    # Pass every argument through: newer langchain-google-genai versions add parameters
+    # (e.g. `model_name`), and a fixed signature here breaks every Gemini call.
+    def patched_parse_candidate(candidate, *args, **kwargs):
+        ai_msg = orig_parse_candidate(candidate, *args, **kwargs)
         signatures = []
         for p in candidate.content.parts:
             if getattr(p, "thought_signature", None):
@@ -36,8 +38,8 @@ def _apply_thought_signature_patch():
             ai_msg.additional_kwargs["thought_signatures"] = signatures
         return ai_msg
 
-    def patched_parse_history(input_messages, convert_system_message_to_human=False, **kwargs):
-        system_instruction, contents = orig_parse_history(input_messages, convert_system_message_to_human, **kwargs)
+    def patched_parse_history(input_messages, *args, **kwargs):
+        system_instruction, contents = orig_parse_history(input_messages, *args, **kwargs)
         # Re-attach thought_signatures to matching function_call parts in model content turns
         ai_msgs_with_sig = [
             m for m in input_messages
