@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { ChevronDown, Eye, EyeOff, KeyRound, X } from 'lucide-react';
+import { ChevronDown, ExternalLink, Eye, EyeOff, KeyRound, X } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { useAgentStore } from '../../store/useAgentStore';
-import { PROVIDER_LABELS, type Provider } from '../../lib/types';
+import { FREE_KEY_LINKS, PROVIDER_LABELS, type Provider } from '../../lib/types';
 
 /** Provider, model, key override and agent-mode switch, shared by every panel. */
 export function ControlBar() {
@@ -27,6 +27,7 @@ export function ControlBar() {
       ? agentStates.ollama?.status === 'connected'
       : !!apiKey.trim() || serverHasKey;
   const keyLooksWrong = activeProvider === 'openai' && apiKey && !apiKey.startsWith('sk-');
+  const freeKeyUrl = !ready ? FREE_KEY_LINKS[activeProvider] : undefined;
 
   return (
     <div className="flex max-w-full flex-wrap items-center justify-center gap-2 rounded-full border border-white/[0.07] bg-black/50 px-2 py-1.5 text-xs backdrop-blur-xl">
@@ -114,6 +115,19 @@ export function ControlBar() {
             </button>
           </span>
         </label>
+      )}
+
+      {freeKeyUrl && (
+        <a
+          href={freeKeyUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={`Create a free ${PROVIDER_LABELS[activeProvider]} API key, then paste it into the key box`}
+          className="flex items-center gap-1.5 rounded-full border border-emerald-300/30 bg-emerald-400/10 px-3 py-1.5 text-emerald-100 transition-colors hover:bg-emerald-400/20"
+        >
+          Get a free key
+          <ExternalLink className="h-3 w-3" />
+        </a>
       )}
     </div>
   );

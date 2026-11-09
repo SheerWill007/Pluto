@@ -20,6 +20,15 @@ export const PROVIDER_LABELS: Record<Provider, string> = {
   ollama: 'Ollama (local)',
 };
 
+/**
+ * Providers whose free tier works with Pluto's default model for that provider.
+ * Shown as a "Get a free key" link when the user has no key for the selected provider.
+ */
+export const FREE_KEY_LINKS: Partial<Record<Provider, string>> = {
+  google: 'https://aistudio.google.com/apikey',
+  groq: 'https://console.groq.com/keys',
+};
+
 export interface AuthUser {
   id: string;
   email: string;
